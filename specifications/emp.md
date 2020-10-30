@@ -86,9 +86,6 @@ Fields have the following meaning:
   encoding and meaning of any data in this field are defined by the extension
   identified by the extension id field.
 
-Note that there can be multiple extension blocks associated with the same
-extension.
-
 ### Body
 The content of the body depends on the type of the message. Some message may
 not have a body.
