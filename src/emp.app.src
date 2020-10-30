@@ -13,7 +13,7 @@
 %% PERFORMANCE OF THIS SOFTWARE.
 
 {application, emp,
- [{description, "A simple library application."},
+ [{description, "Implementation of the EMP communication protocol."},
   {vsn, "0.1.0"},
   {registered, []},
   {mod, {emp_app, []}},
