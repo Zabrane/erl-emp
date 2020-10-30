@@ -92,11 +92,7 @@ not have a body.
 
 ## Message types
 EMP includes various kinds of messages. Each type of message is identified by
-a 8 bit integer. Identifiers 0 to 127 are reserved; implementations are free
-to introduce new message types for application specific use cases.
-
-Implementations must support all message types described in this
-document.
+a 8 bit integer.
 
 The following message types are currently defined:
 
@@ -153,7 +149,7 @@ The body is encoded as follows:
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |   Error code  | Extension id  |Ext. err. code |    Unused     |
+    |   Error code  |                    Unused                     |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                         Error message                         |
     |                              ...                              |
@@ -161,13 +157,7 @@ The body is encoded as follows:
 
 Fields have the following meaning:
 
-- Error code: a 8 bit integer identifying the error. Codes 0 to 127 are
-  reserved.
-- Extension id: if the error code is 3 (extension error), the 8 bit integer
-  identifying the extension.
-- Extension error code: if the error code is 3 (extension error), an 8 bit
-  integer identifying the error. Refer to the documentation of the extension
-  to interpret the code.
+- Error code: a 8 bit integer identifying the error.
 - Error message: a character string describing the error.
 
 The following error codes are currently defined:
@@ -178,7 +168,6 @@ The following error codes are currently defined:
 | 1    | IO error. Used for any error associated with socket operations.                                        |
 | 2    | Timeout. Indicate that a network operation timed out.                                                  |
 | 3    | Protocol error. Indicates that an invalid message was received, or that the message flow is incorrect. |
-| 4    | Extension error. Indicates that un invalid extension block was received.                               |
 
 ### Data
 The `data` message is used to transfer application data. The content and
@@ -233,6 +222,13 @@ is not defined by the EMP protocol; applications are free to represent data as
 they see fit.
 
 # Extensions
+The following extensions are supported:
+
+| Id | Name             |
+| -- | ----             |
+| 0  | request-response |
+| 1  | compression      |
+
 ## Request-response
 The request-response extension introduces a message exchange pattern where a
 peer can send a request message and receive a correlated response.
