@@ -151,14 +151,14 @@ The body is encoded as follows:
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |   Error code  |                    Unused                     |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                         Error message                         |
+    |                          Description                          |
     |                              ...                              |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Fields have the following meaning:
 
-- Error code: a 8 bit integer identifying the error.
-- Error message: a character string describing the error.
+- Code: a 8 bit integer identifying the error.
+- Description: a character string describing the error.
 
 The following error codes are currently defined:
 
