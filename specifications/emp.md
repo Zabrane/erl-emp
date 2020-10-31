@@ -40,7 +40,7 @@ The envelope contains all parts of the message; it is encoded as follows:
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 The size of the envelope is a 32 bit unsigned integer, and represents the size
-of the whole message, including the size field itself.
+of the whole message, excluding the size field itself.
 
 ### Header
 The header contains information about the message and its content.
@@ -78,7 +78,7 @@ An extension block is encoded as follows:
 
 Fields have the following meaning:
 
-- Size: the size of the entire extension block, including the size field, as a
+- Size: the size of the entire extension block, excluding the size field, as a
   32 bit integer.
 - Extension id: the numeric identifier of the extension as 8 bit integer.
 - M: a bit indicating if there is more extension blocks after this one.
