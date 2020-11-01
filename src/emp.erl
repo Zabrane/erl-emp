@@ -12,17 +12,25 @@
 %% OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 %% PERFORMANCE OF THIS SOFTWARE.
 
-{application, emp,
- [{description, "Implementation of the EMP communication protocol."},
-  {vsn, "0.1.0"},
-  {registered, []},
-  {mod, {emp_app, []}},
-  {applications,
-   [kernel,
-    stdlib,
-    ssl,
-    backoff]},
-  {env, []},
-  {modules, []},
+-module(emp).
 
-  {licenses, ["ISC"]}]}.
+-export([default_port/0]).
+
+-export_type([gen_server_name/0, gen_server_ref/0,
+              transport/0]).
+
+-type gen_server_name() :: {local, term()}
+                         | {global, term()}
+                         | {via, atom(), term()}.
+
+-type gen_server_ref() :: term()
+                        | {term(), atom()}
+                        | {global, term()}
+                        | {via, atom(), term()}
+                        | pid().
+
+-type transport() :: tcp | tls.
+
+-spec default_port() -> inet:port_number().
+default_port() ->
+  5040.
