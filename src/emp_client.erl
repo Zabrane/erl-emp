@@ -36,7 +36,7 @@
 -type state() :: #{options := options(),
                    transport := emp:transport(),
                    backoff := backoff:backoff(),
-                   socket => inet:socket() | ssl:sslsocket()}.
+                   socket => emp:socket()}.
 
 -spec process_name(emp:client_id()) -> atom().
 process_name(Id) ->
@@ -103,44 +103,23 @@ schedule_connection(Backoff) ->
 
 -spec connect(state()) -> {ok, state()} | {error, term()}.
 connect(State = #{options := Options}) ->
-  case maps:get(transport, Options, tcp) of
-    tcp ->
-      connect_tcp(State);
-    tls ->
-      connect_tls(State)
-  end.
-
--spec connect_tcp(state()) -> {ok, state()} | {error, term()}.
-connect_tcp(State = #{options := Options}) ->
+  Transport = maps:get(transport, Options, tcp),
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, emp:default_port()),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  TCPOptions = default_tcp_options() ++
-    maps:get(tcp_options, Options, []),
+  {Connect, ConnectOptions} =
+    case Transport of
+      tcp -> {fun gen_tcp:connect/4,
+              default_tcp_options() ++
+                maps:get(tcp_options, Options, [])};
+      tls -> {fun ssl:connect/4,
+              default_tcp_options() ++
+                maps:get(tcp_options, Options, []) ++
+                maps:get(tls_options, Options, [])}
+    end,
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
   HostString = unicode:characters_to_list(Host),
-  case gen_tcp:connect(HostString, Port, TCPOptions, Timeout) of
-    {ok, Socket} ->
-      ?LOG_INFO("connection established"),
-      State2 = State#{options => Options#{host => Host, port => Port},
-                      socket => Socket},
-      {ok, State2};
-    {error, Reason} ->
-      ?LOG_ERROR("connection failed: ~p", [Reason]),
-      {error, Reason}
-  end.
-
--spec connect_tls(state()) -> {ok, state()} | {error, term()}.
-connect_tls(State = #{options := Options}) ->
-  Host = maps:get(host, Options, <<"localhost">>),
-  Port = maps:get(port, Options, emp:default_port()),
-  Timeout = maps:get(connection_timeout, Options, 5000),
-  TLSOptions = default_tcp_options() ++
-    maps:get(tcp_options, Options, []) ++
-    maps:get(tls_options, Options, []),
-  ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
-  HostString = unicode:characters_to_list(Host),
-  case ssl:connect(HostString, Port, TLSOptions, Timeout) of
+  case Connect(HostString, Port, ConnectOptions, Timeout) of
     {ok, Socket} ->
       ?LOG_INFO("connection established"),
       State2 = State#{options => Options#{host => Host, port => Port},
