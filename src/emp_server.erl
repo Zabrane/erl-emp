@@ -34,7 +34,7 @@
 
 -type state() :: #{options := options(),
                    transport := emp:transport(),
-                   socket => inet:socket() | ssl:sslsocket()}.
+                   socket => emp:socket()}.
 
 -spec process_name(emp:client_id()) -> atom().
 process_name(Id) ->
@@ -55,11 +55,12 @@ init([Options]) ->
       {stop, Reason}
   end.
 
-terminate(_Reason, #{transport := tcp, socket := Socket}) ->
-  gen_tcp:close(Socket),
-  ok;
-terminate(_Reason, #{transport := tls, socket := Socket}) ->
-  ssl:close(Socket),
+terminate(_Reason, #{transport := Transport, socket := Socket}) ->
+  Close = case Transport of
+            tcp -> fun gen_tcp:close/1;
+            tls -> fun ssl:close/1
+          end,
+  Close(Socket),
   ok.
 
 handle_call(Msg, From, State) ->
@@ -76,26 +77,32 @@ handle_info(Msg, State) ->
 
 -spec listen(options()) -> {ok, state()} | {error, term()}.
 listen(Options) ->
-  case maps:get(transport, Options, tcp) of
-    tcp ->
-      listen_tcp(Options);
-    tls ->
-      listen_tls(Options)
-  end.
-
--spec listen_tcp(options()) -> {ok, state()} | {error, term()}.
-listen_tcp(Options) ->
+  Transport = maps:get(transport, Options, tcp),
   Address = maps:get(address, Options, loopback),
   Port = maps:get(port, Options, emp:default_port()),
-  TCPOptions = default_tcp_options() ++
-    [{ip, Address}] ++
-    maps:get(tcp_options, Options, []),
-  case gen_tcp:listen(Port, TCPOptions) of
+  {Listen, ListenOptions, Sockname} =
+    case Transport of
+      tcp ->
+        {fun gen_tcp:listen/2,
+         default_tcp_options() ++
+           [{ip, Address}] ++
+           maps:get(tcp_options, Options, []),
+         fun inet:sockname/1};
+      tls ->
+        {fun ssl:listen/2,
+         default_tcp_options() ++
+           [{ip, Address}] ++
+           maps:get(tcp_options, Options, []) ++
+           maps:get(tls_options, Options, []),
+         fun ssl:sockname/1}
+    end,
+  case Listen(Port, ListenOptions) of
     {ok, Socket} ->
-      {ok, {LocalAddress, LocalPort}} = inet:sockname(Socket),
+      {ok, {LocalAddress, LocalPort}} = Sockname(Socket),
       ?LOG_INFO("listening on ~s:~b", [inet:ntoa(LocalAddress), LocalPort]),
-      State = #{options => Options#{address => Address, port => Port},
-                transport => tcp,
+      {ok, _} = emp_acceptor:start_link(Socket, Options),
+      State = #{options => Options,
+                transport => Transport,
                 socket => Socket},
       {ok, State};
     {error, Reason} ->
@@ -103,32 +110,11 @@ listen_tcp(Options) ->
       {error, Reason}
   end.
 
--spec listen_tls(options()) -> {ok, state()} | {error, term()}.
-listen_tls(Options) ->
-  Address = maps:get(address, Options, loopback),
-  Port = maps:get(port, Options, emp:default_port()),
-  TLSOptions = default_tcp_options() ++
-    [{ip, Address}] ++
-    maps:get(tcp_options, Options, []) ++
-    maps:get(tls_options, Options, []),
-  case ssl:listen(Port, TLSOptions) of
-    {ok, Socket} ->
-      {ok, {LocalAddress, LocalPort}} = ssl:sockname(Socket),
-      ?LOG_INFO("listening on ~s:~b", [inet:ntoa(LocalAddress), LocalPort]),
-      State = #{options => Options#{address => Address, port => Port},
-                transport => tls,
-                socket => Socket},
-      {ok, State};
-    {error, Reason} ->
-      ?LOG_ERROR("cannot listen for connections: ~p", [Reason]),
-      {error, {listen, Reason}}
-  end.
-
 -spec default_tcp_options() -> [term()].
 default_tcp_options() ->
   [{reuseaddr, true},
-   {active, false},
    {send_timeout, 5000},
    {send_timeout_close, true},
+   {active, false},
    binary,
    {packet, 4}].
