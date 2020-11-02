@@ -112,7 +112,7 @@ connect_tcp(State = #{options := Options}) ->
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, emp:default_port()),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  RequiredTCPOptions = [{mode, binary}],
+  RequiredTCPOptions = [{mode, binary}, {packet, 4}],
   TCPOptions = RequiredTCPOptions ++ maps:get(tcp_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
   HostString = unicode:characters_to_list(Host),
@@ -132,7 +132,7 @@ connect_tls(State = #{options := Options}) ->
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, emp:default_port()),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  RequiredTLSOptions = [{mode, binary}],
+  RequiredTLSOptions = [{mode, binary}, {packet, 4}],
   TLSOptions = RequiredTLSOptions ++
     maps:get(tcp_options, Options, []) ++
     maps:get(tls_options, Options, []),
