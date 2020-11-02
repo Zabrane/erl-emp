@@ -22,10 +22,9 @@
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -type state() :: #{options := emp_server:options(),
-                   transport := emp:transport(),
-                   socket => emp:socket()}.
+                   socket => emp_socket:socket()}.
 
--spec start_link(emp:socket(), emp_server:options()) -> Result when
+-spec start_link(emp_socket:socket(), emp_server:options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link(Socket, Options) ->
   gen_server:start_link(?MODULE, [Socket, Options], []).
@@ -34,7 +33,6 @@ init([Socket, Options]) ->
   logger:update_process_metadata(#{domain => [emp, acceptor]}),
   process_flag(trap_exit, true),
   State = #{options => Options,
-            transport => maps:get(transport, Options, tcp),
             socket => Socket},
   gen_server:cast(self(), accept),
   {ok, State}.
@@ -46,14 +44,10 @@ handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {noreply, State}.
 
-handle_cast(accept, State = #{transport := Transport, socket := Socket}) ->
-  Accept = case Transport of
-             tcp -> fun gen_tcp:accept/2;
-             tls -> fun ssl:handshake/2
-           end,
-  case Accept(Socket, 1000) of
+handle_cast(accept, State = #{socket := Socket}) ->
+  case emp_socket:accept(Socket, 1000) of
     {ok, ConnSocket} ->
-      case inet:peername(ConnSocket) of
+      case emp_socket:peername(ConnSocket) of
         {ok, {ConnAddress, ConnPort}} ->
           ?LOG_DEBUG("connection accepted from ~s:~b",
                      [inet:ntoa(ConnAddress), ConnPort]),
@@ -89,11 +83,13 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec spawn_connection(emp:socket(), inet:ip_address(), inet:port_number(),
-                       state()) -> ok.
-spawn_connection(Socket, Address, Port, #{transport := Transport}) ->
-  ConnOptions = #{transport => Transport},
+-spec spawn_connection(emp_socket:socket(),
+                       inet:ip_address(), inet:port_number(),
+                       state()) ->
+        ok.
+spawn_connection(Socket = {_, S}, Address, Port, _State) ->
+  ConnOptions = #{},
   {ok, Pid} = emp_connection:start_link(Address, Port, ConnOptions),
-  gen_tcp:controlling_process(Socket, Pid),
+  gen_tcp:controlling_process(S, Pid),
   gen_server:cast(Pid, {socket, Socket}),
   ok.

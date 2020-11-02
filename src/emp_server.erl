@@ -28,13 +28,12 @@
 
 -type options() :: #{address => inet:socket_address(),
                      port => inet:port_number(),
-                     transport => emp:transport(),
+                     transport => emp_socket:transport(),
                      tcp_options => [gen_tcp:connect_option()],
                      tls_options => [ssl:tls_client_option()]}.
 
 -type state() :: #{options := options(),
-                   transport := emp:transport(),
-                   socket => emp:socket()}.
+                   socket => emp_socket:socket()}.
 
 -spec process_name(emp:client_id()) -> atom().
 process_name(Id) ->
@@ -55,12 +54,8 @@ init([Options]) ->
       {stop, Reason}
   end.
 
-terminate(_Reason, #{transport := Transport, socket := Socket}) ->
-  Close = case Transport of
-            tcp -> fun gen_tcp:close/1;
-            tls -> fun ssl:close/1
-          end,
-  Close(Socket),
+terminate(_Reason, #{socket := Socket}) ->
+  emp_socket:close(Socket),
   ok.
 
 handle_call(Msg, From, State) ->
@@ -80,29 +75,22 @@ listen(Options) ->
   Transport = maps:get(transport, Options, tcp),
   Address = maps:get(address, Options, loopback),
   Port = maps:get(port, Options, emp:default_port()),
-  {Listen, ListenOptions, Sockname} =
+  ListenOptions =
     case Transport of
-      tcp ->
-        {fun gen_tcp:listen/2,
-         default_tcp_options() ++
-           [{ip, Address}] ++
-           maps:get(tcp_options, Options, []),
-         fun inet:sockname/1};
-      tls ->
-        {fun ssl:listen/2,
-         default_tcp_options() ++
-           [{ip, Address}] ++
-           maps:get(tcp_options, Options, []) ++
-           maps:get(tls_options, Options, []),
-         fun ssl:sockname/1}
+      tcp -> default_tcp_options() ++
+               [{ip, Address}] ++
+               maps:get(tcp_options, Options, []);
+      tls -> default_tcp_options() ++
+               [{ip, Address}] ++
+               maps:get(tcp_options, Options, []) ++
+               maps:get(tls_options, Options, [])
     end,
-  case Listen(Port, ListenOptions) of
+  case emp_socket:listen(Transport, Port, ListenOptions) of
     {ok, Socket} ->
-      {ok, {LocalAddress, LocalPort}} = Sockname(Socket),
+      {ok, {LocalAddress, LocalPort}} = emp_socket:sockname(Socket),
       ?LOG_INFO("listening on ~s:~b", [inet:ntoa(LocalAddress), LocalPort]),
       {ok, _} = emp_acceptor:start_link(Socket, Options),
       State = #{options => Options,
-                transport => Transport,
                 socket => Socket},
       {ok, State};
     {error, Reason} ->
