@@ -58,15 +58,13 @@ init([Options]) ->
   self() ! connect,
   {ok, State}.
 
-terminate(Reason, State = #{transport := tcp, socket := Socket}) ->
+terminate(_Reason, #{transport := tcp, socket := Socket}) ->
   ?LOG_DEBUG("closing connection"),
   gen_tcp:close(Socket),
-  terminate(Reason, State);
-terminate(Reason, State = #{transport := tls, socket := Socket}) ->
+  ok;
+terminate(_Reason, #{transport := tls, socket := Socket}) ->
   ?LOG_DEBUG("closing connection"),
   ssl:close(Socket),
-  terminate(Reason, State);
-terminate(_Reason, _State) ->
   ok.
 
 handle_call(Msg, From, State) ->
