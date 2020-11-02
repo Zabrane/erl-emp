@@ -17,6 +17,7 @@
 -export([default_port/0]).
 
 -export_type([gen_server_name/0, gen_server_ref/0,
+              client_id/0,
               transport/0]).
 
 -type gen_server_name() :: {local, term()}
@@ -28,6 +29,8 @@
                         | {global, term()}
                         | {via, atom(), term()}
                         | pid().
+
+-type client_id() :: atom().
 
 -type transport() :: tcp | tls.
 

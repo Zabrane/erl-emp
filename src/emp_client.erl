@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/1]).
+-export([process_name/1, start_link/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([client_name/0, client_ref/0, options/0]).
@@ -38,10 +38,15 @@
                    backoff := backoff:backoff(),
                    socket => inet:socket() | ssl:sslsocket()}.
 
--spec start_link(options()) -> Result when
+-spec process_name(emp:client_id()) -> atom().
+process_name(Id) ->
+  Name = <<"emp_client_", (atom_to_binary(Id))/binary>>,
+  binary_to_atom(Name).
+
+-spec start_link(client_name(), options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
-start_link(Options) ->
-  gen_server:start_link(?MODULE, [Options], []).
+start_link(Name, Options) ->
+  gen_server:start_link(Name, ?MODULE, [Options], []).
 
 init([Options]) ->
   logger:update_process_metadata(#{domain => [emp, client]}),
