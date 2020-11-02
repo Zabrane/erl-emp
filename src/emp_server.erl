@@ -89,14 +89,9 @@ listen(Options) ->
 listen_tcp(Options) ->
   Address = maps:get(address, Options, loopback),
   Port = maps:get(port, Options, emp:default_port()),
-  RequiredTCPOptions = [{ip, Address},
-                        {reuseaddr, true},
-                        {active, false},
-                        {send_timeout, 5000},
-                        {send_timeout_close, true},
-                        binary,
-                        {packet, 4}],
-  TCPOptions = RequiredTCPOptions ++ maps:get(tcp_options, Options, []),
+  TCPOptions = default_tcp_options() ++
+    [{ip, Address}] ++
+    maps:get(tcp_options, Options, []),
   case gen_tcp:listen(Port, TCPOptions) of
     {ok, Socket} ->
       {ok, {LocalAddress, LocalPort}} = inet:sockname(Socket),
@@ -114,14 +109,8 @@ listen_tcp(Options) ->
 listen_tls(Options) ->
   Address = maps:get(address, Options, loopback),
   Port = maps:get(port, Options, emp:default_port()),
-  RequiredTLSOptions = [{ip, Address},
-                        {reuseaddr, true},
-                        {active, false},
-                        {send_timeout, 5000},
-                        {send_timeout_close, true},
-                        binary,
-                        {packet, 4}],
-  TLSOptions = RequiredTLSOptions ++
+  TLSOptions = default_tcp_options() ++
+    [{ip, Address}] ++
     maps:get(tcp_options, Options, []) ++
     maps:get(tls_options, Options, []),
   case ssl:listen(Port, TLSOptions) of
@@ -136,3 +125,12 @@ listen_tls(Options) ->
       ?LOG_ERROR("cannot listen for connections: ~p", [Reason]),
       {error, {listen, Reason}}
   end.
+
+-spec default_tcp_options() -> [term()].
+default_tcp_options() ->
+  [{reuseaddr, true},
+   {active, false},
+   {send_timeout, 5000},
+   {send_timeout_close, true},
+   binary,
+   {packet, 4}].

@@ -117,8 +117,8 @@ connect_tcp(State = #{options := Options}) ->
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, emp:default_port()),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  RequiredTCPOptions = [{mode, binary}, {packet, 4}],
-  TCPOptions = RequiredTCPOptions ++ maps:get(tcp_options, Options, []),
+  TCPOptions = default_tcp_options() ++
+    maps:get(tcp_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
   HostString = unicode:characters_to_list(Host),
   case gen_tcp:connect(HostString, Port, TCPOptions, Timeout) of
@@ -137,8 +137,7 @@ connect_tls(State = #{options := Options}) ->
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, emp:default_port()),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  RequiredTLSOptions = [{mode, binary}, {packet, 4}],
-  TLSOptions = RequiredTLSOptions ++
+  TLSOptions = default_tcp_options() ++
     maps:get(tcp_options, Options, []) ++
     maps:get(tls_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
@@ -153,3 +152,7 @@ connect_tls(State = #{options := Options}) ->
       ?LOG_ERROR("connection failed: ~p", [Reason]),
       {error, Reason}
   end.
+
+-spec default_tcp_options() -> [term()].
+default_tcp_options() ->
+  [{mode, binary}, {packet, 4}].
