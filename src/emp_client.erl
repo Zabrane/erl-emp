@@ -28,8 +28,10 @@
 
 -type options() :: #{host => binary(),
                      port => inet:port_number(),
+                     transport => emp:transport(),
                      connection_timeout => timeout(),
-                     transport => emp:transport()}.
+                     tcp_options => [gen_tcp:connect_option()],
+                     tls_options => [ssl:tls_client_option()]}.
 
 -type state() :: #{options := options(),
                    transport := emp:transport(),
@@ -110,7 +112,8 @@ connect_tcp(State = #{options := Options}) ->
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, emp:default_port()),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  TCPOptions = [{mode, binary}],
+  RequiredTCPOptions = [{mode, binary}],
+  TCPOptions = RequiredTCPOptions ++ maps:get(tcp_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
   HostString = unicode:characters_to_list(Host),
   case gen_tcp:connect(HostString, Port, TCPOptions, Timeout) of
@@ -129,7 +132,10 @@ connect_tls(State = #{options := Options}) ->
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, emp:default_port()),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  TLSOptions = [{mode, binary}],
+  RequiredTLSOptions = [{mode, binary}],
+  TLSOptions = RequiredTLSOptions ++
+    maps:get(tcp_options, Options, []) ++
+    maps:get(tls_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
   HostString = unicode:characters_to_list(Host),
   case ssl:connect(HostString, Port, TLSOptions, Timeout) of
