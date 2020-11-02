@@ -12,7 +12,7 @@
 %% OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 %% PERFORMANCE OF THIS SOFTWARE.
 
--module(emp_sup).
+-module(emp_client_sup).
 
 -behaviour(supervisor).
 
@@ -23,13 +23,22 @@ start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-  Children = [#{id => clients,
-                start => {emp_client_sup, start_link, []},
-                type => supervisor},
-              #{id => servers,
-                start => {emp_server_sup, start_link, []},
-                type => supervisor}],
+  Children = client_child_specs(),
   Flags = #{strategy => one_for_one,
             intensity => 1,
             period => 5},
   {ok, {Flags, Children}}.
+
+-spec client_child_specs() -> [supervisor:child_spec()].
+client_child_specs() ->
+  ClientSpecs = application:get_env(emp, clients, #{}),
+  maps:fold(fun (Id, Options, Acc) ->
+                [client_child_spec(Id, Options) | Acc]
+            end,
+            [], ClientSpecs).
+
+-spec client_child_spec(emp:client_id(), emp_client:options()) -> supervisor:child_spec().
+client_child_spec(ChildId, Options) ->
+  Name = emp_client:process_name(ChildId),
+  #{id => ChildId,
+    start => {emp_client, start_link, [{local, Name}, Options]}}.
