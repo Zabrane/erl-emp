@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([process_name/1, start_link/2]).
+-export([process_name/1, start_link/2, send_message/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([client_name/0, client_ref/0, options/0]).
@@ -34,7 +34,7 @@
 
 -type state() :: #{options := options(),
                    backoff := backoff:backoff(),
-                   socket => emp_socket:socket()}.
+                   connection_pid => pid()}.
 
 -spec process_name(emp:client_id()) -> atom().
 process_name(Id) ->
@@ -46,6 +46,10 @@ process_name(Id) ->
 start_link(Name, Options) ->
   gen_server:start_link(Name, ?MODULE, [Options], []).
 
+-spec send_message(client_ref(), emp_proto:message()) -> ok | {error, term()}.
+send_message(Ref, Message) ->
+  gen_server:call(Ref, {send_message, Message}, infinity).
+
 init([Options]) ->
   logger:update_process_metadata(#{domain => [emp, client]}),
   process_flag(trap_exit, true),
@@ -55,10 +59,16 @@ init([Options]) ->
   self() ! connect,
   {ok, State}.
 
-terminate(_Reason, #{socket := Socket}) ->
-  ?LOG_DEBUG("closing connection"),
-  emp_socket:close(Socket),
+terminate(_Reason, _State) ->
   ok.
+
+handle_call({send_message, Message}, _From, State) ->
+  case maps:find(connection_pid, State) of
+    {ok, Pid} ->
+      emp_connection:send_message(Pid, Message);
+    error ->
+      {error, connection_unavailable}
+  end;
 
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
@@ -81,11 +91,11 @@ handle_info(connect, State = #{backoff := Backoff}) ->
 
 handle_info({'EXIT', _Pid, normal}, State = #{backoff := Backoff}) ->
   schedule_connection(Backoff),
-  {noreply, State};
+  {noreply, maps:remove(connection_pid, State)};
 handle_info({'EXIT', Pid, Reason}, State = #{backoff := Backoff}) ->
   ?LOG_WARNING("connection ~p exited (~p)", [Pid, Reason]),
   schedule_connection(Backoff),
-  {noreply, State};
+  {noreply, maps:remove(connection_pid, State)};
 
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
@@ -112,10 +122,8 @@ connect(State = #{options := Options}) ->
       ?LOG_INFO("connection established"),
       case emp_socket:peername(Socket) of
         {ok, {PeerAddress, PeerPort}} ->
-          spawn_connection(Socket, PeerAddress, PeerPort, State),
-          State2 = State#{options => Options#{host => Host, port => Port},
-                          socket => Socket},
-          {ok, State2};
+          Pid = spawn_connection(Socket, PeerAddress, PeerPort, State),
+          {ok, State#{connection_pid => Pid}};
         {error, Reason} ->
           ?LOG_ERROR("cannot obtain peer address and port: ~p", Reason),
           emp_socket:close(Socket),
@@ -129,10 +137,10 @@ connect(State = #{options := Options}) ->
 -spec spawn_connection(emp_socket:socket(),
                        inet:ip_address(), inet:port_number(),
                        state()) ->
-        ok.
+        pid().
 spawn_connection(Socket = {_, S}, Address, Port, _State) ->
   ConnOptions = #{},
   {ok, Pid} = emp_connection:start_link(Address, Port, ConnOptions),
   gen_tcp:controlling_process(S, Pid),
   gen_server:cast(Pid, {socket, Socket}),
-  ok.
+  Pid.

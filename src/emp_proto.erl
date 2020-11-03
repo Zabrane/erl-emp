@@ -16,7 +16,7 @@
 
 -export([hello_message/0, bye_message/0, ping_message/0, pong_message/0,
          error_message/2, error_message/3, data_message/1,
-         encode_message/1,
+         encode_envelope/1, encode_message/1,
          decode_message/1,
          encode_string/1, decode_string/1]).
 
@@ -97,6 +97,12 @@ error_message(Code, Format, Args) ->
 -spec data_message(Body :: iodata()) -> message().
 data_message(Body) ->
   #{type => data, body => Body}.
+
+-spec encode_envelope(message()) -> iodata().
+encode_envelope(Message) ->
+  Data = encode_message(Message),
+  Size = iolist_size(Data),
+  [<<Size:32>>, Data].
 
 -spec encode_message(message()) -> iodata().
 encode_message(Message = #{type := Type}) ->

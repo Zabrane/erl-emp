@@ -16,6 +16,7 @@
 
 -export([connect/5, listen/3, accept/2,
          sockname/1, peername/1, setopts/2,
+         send/2,
          close/1]).
 
 -export_type([transport/0, socket/0,
@@ -105,6 +106,12 @@ setopts({tcp, Socket}, Options) ->
   inet:setopts(Socket, Options);
 setopts({tls, Socket}, Options) ->
   ssl:setopts(Socket, Options).
+
+-spec send(socket(), iodata()) -> ok | {error, term()}.
+send({tcp, Socket}, Data) ->
+  gen_tcp:send(Socket, Data);
+send({tls, Socket}, Data) ->
+  ssl:send(Socket, Data).
 
 -spec close(socket()) -> ok | {error, term()}.
 close({tcp, Socket}) ->

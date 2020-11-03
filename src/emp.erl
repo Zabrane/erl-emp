@@ -14,7 +14,8 @@
 
 -module(emp).
 
--export([default_port/0]).
+-export([default_port/0,
+         send_message/2]).
 
 -export_type([gen_server_name/0, gen_server_ref/0,
               client_id/0, server_id/0]).
@@ -35,3 +36,13 @@
 -spec default_port() -> inet:port_number().
 default_port() ->
   5040.
+
+-spec send_message(Sender, emp_proto:message()) ->
+        ok | {error, term()} when
+    Sender :: {client, client_id()}
+            | {connection, pid()}.
+send_message({client, ClientId}, Message) ->
+  ClientRef = emp_client:process_name(ClientId),
+  emp_client:send_message(ClientRef, Message);
+send_message({connection, Pid}, Message) ->
+  emp_connection:send_message(Pid, Message).

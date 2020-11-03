@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/3]).
+-export([start_link/3, send_message/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([options/0]).
@@ -37,6 +37,10 @@
 start_link(Address, Port, Options) ->
   gen_server:start_link(?MODULE, [Address, Port, Options], []).
 
+-spec send_message(pid(), emp_proto:message()) -> ok | {error, term()}.
+send_message(Pid, Message) ->
+  gen_server:call(Pid, {send_message, Message}, infinity).
+
 init([Address, Port, Options]) ->
   logger:update_process_metadata(#{domain => [emp, connection]}),
   State = #{options => Options,
@@ -49,6 +53,11 @@ terminate(_Reason, #{socket := Socket}) ->
   ok;
 terminate(_Reason, _State) ->
   ok.
+
+handle_call({send_message, Message}, _From, State = #{socket := Socket}) ->
+  Data = emp_proto:encode_envelope(Message),
+  emp_socket:send(Socket, Data),
+  {noreply, State};
 
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
@@ -67,6 +76,10 @@ handle_info({Event, _}, _State) when
     Event =:= tcp_closed; Event =:= ssl_closed ->
   ?LOG_INFO("connection closed"),
   exit(normal);
+
+handle_info({Event, _}, State) when
+    Event =:= tcp_passive; Event =:= ssl_passive ->
+  {noreply, State};
 
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
