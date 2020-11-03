@@ -30,8 +30,7 @@
                      port => inet:port_number(),
                      transport => emp_socket:transport(),
                      connection_timeout => timeout(),
-                     tcp_options => [gen_tcp:connect_option()],
-                     tls_options => [ssl:tls_client_option()]}.
+                     socket_options => emp_socket:connect_options()}.
 
 -type state() :: #{options := options(),
                    backoff := backoff:backoff(),
@@ -100,17 +99,12 @@ connect(State = #{options := Options}) ->
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, emp:default_port()),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  ConnectOptions =
-    case Transport of
-      tcp -> default_tcp_options() ++
-               maps:get(tcp_options, Options, []);
-      tls -> default_tcp_options() ++
-               maps:get(tcp_options, Options, []) ++
-               maps:get(tls_options, Options, [])
-    end,
+  SocketOptions = [{mode, binary},
+                   {packet, 4}] ++
+    maps:get(socket_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
   Host2 = unicode:characters_to_list(Host),
-  case emp_socket:connect(Transport, Host2, Port, ConnectOptions, Timeout) of
+  case emp_socket:connect(Transport, Host2, Port, SocketOptions, Timeout) of
     {ok, Socket} ->
       ?LOG_INFO("connection established"),
       State2 = State#{options => Options#{host => Host, port => Port},
@@ -120,7 +114,3 @@ connect(State = #{options := Options}) ->
       ?LOG_ERROR("connection failed: ~p", [Reason]),
       {error, Reason}
   end.
-
--spec default_tcp_options() -> [term()].
-default_tcp_options() ->
-  [{mode, binary}, {packet, 4}].

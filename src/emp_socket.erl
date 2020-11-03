@@ -18,7 +18,8 @@
          sockname/1, peername/1, setopts/2,
          close/1]).
 
--export_type([transport/0, socket/0]).
+-export_type([transport/0, socket/0,
+              connect_options/0, listen_options/0]).
 
 -type transport() :: tcp | tls.
 

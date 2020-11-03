@@ -29,8 +29,7 @@
 -type options() :: #{address => inet:socket_address(),
                      port => inet:port_number(),
                      transport => emp_socket:transport(),
-                     tcp_options => [gen_tcp:connect_option()],
-                     tls_options => [ssl:tls_client_option()]}.
+                     socket_options => emp_socket:listen_options()}.
 
 -type state() :: #{options := options(),
                    socket => emp_socket:socket()}.
@@ -75,17 +74,15 @@ listen(Options) ->
   Transport = maps:get(transport, Options, tcp),
   Address = maps:get(address, Options, loopback),
   Port = maps:get(port, Options, emp:default_port()),
-  ListenOptions =
-    case Transport of
-      tcp -> default_tcp_options() ++
-               [{ip, Address}] ++
-               maps:get(tcp_options, Options, []);
-      tls -> default_tcp_options() ++
-               [{ip, Address}] ++
-               maps:get(tcp_options, Options, []) ++
-               maps:get(tls_options, Options, [])
-    end,
-  case emp_socket:listen(Transport, Port, ListenOptions) of
+  SocketOptions = [{ip, Address},
+                   {reuseaddr, true},
+                   {send_timeout, 5000},
+                   {send_timeout_close, true},
+                   {active, false},
+                   binary,
+                   {packet, 4}] ++
+    maps:get(socket_options, Options, []),
+  case emp_socket:listen(Transport, Port, SocketOptions) of
     {ok, Socket} ->
       {ok, {LocalAddress, LocalPort}} = emp_socket:sockname(Socket),
       ?LOG_INFO("listening on ~s:~b", [inet:ntoa(LocalAddress), LocalPort]),
@@ -97,12 +94,3 @@ listen(Options) ->
       ?LOG_ERROR("cannot listen for connections: ~p", [Reason]),
       {error, Reason}
   end.
-
--spec default_tcp_options() -> [term()].
-default_tcp_options() ->
-  [{reuseaddr, true},
-   {send_timeout, 5000},
-   {send_timeout_close, true},
-   {active, false},
-   binary,
-   {packet, 4}].
