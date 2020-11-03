@@ -48,6 +48,7 @@ start_link(Name, Options) ->
 
 init([Options]) ->
   logger:update_process_metadata(#{domain => [emp, client]}),
+  process_flag(trap_exit, true),
   Backoff = backoff:type(backoff:init(1000, 60000), jitter),
   State = #{options => Options,
             backoff => Backoff},
@@ -78,9 +79,11 @@ handle_info(connect, State = #{backoff := Backoff}) ->
       {noreply, State#{backoff => Backoff2}}
   end;
 
-handle_info({Event, _}, State = #{backoff := Backoff}) when
-    Event =:= tcp_closed; Event =:= ssl_closed ->
-  ?LOG_INFO("connection closed"),
+handle_info({'EXIT', _Pid, normal}, State = #{backoff := Backoff}) ->
+  schedule_connection(Backoff),
+  {noreply, State};
+handle_info({'EXIT', Pid, Reason}, State = #{backoff := Backoff}) ->
+  ?LOG_WARNING("connection ~p exited (~p)", [Pid, Reason]),
   schedule_connection(Backoff),
   {noreply, State};
 
@@ -107,10 +110,29 @@ connect(State = #{options := Options}) ->
   case emp_socket:connect(Transport, Host2, Port, SocketOptions, Timeout) of
     {ok, Socket} ->
       ?LOG_INFO("connection established"),
-      State2 = State#{options => Options#{host => Host, port => Port},
-                      socket => Socket},
-      {ok, State2};
+      case emp_socket:peername(Socket) of
+        {ok, {PeerAddress, PeerPort}} ->
+          spawn_connection(Socket, PeerAddress, PeerPort, State),
+          State2 = State#{options => Options#{host => Host, port => Port},
+                          socket => Socket},
+          {ok, State2};
+        {error, Reason} ->
+          ?LOG_ERROR("cannot obtain peer address and port: ~p", Reason),
+          emp_socket:close(Socket),
+          {error, {peername, Reason}}
+      end;
     {error, Reason} ->
       ?LOG_ERROR("connection failed: ~p", [Reason]),
-      {error, Reason}
+      {error, {connect, Reason}}
   end.
+
+-spec spawn_connection(emp_socket:socket(),
+                       inet:ip_address(), inet:port_number(),
+                       state()) ->
+        ok.
+spawn_connection(Socket = {_, S}, Address, Port, _State) ->
+  ConnOptions = #{},
+  {ok, Pid} = emp_connection:start_link(Address, Port, ConnOptions),
+  gen_tcp:controlling_process(S, Pid),
+  gen_server:cast(Pid, {socket, Socket}),
+  ok.
