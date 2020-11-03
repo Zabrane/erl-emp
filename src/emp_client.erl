@@ -65,9 +65,9 @@ terminate(_Reason, _State) ->
 handle_call({send_message, Message}, _From, State) ->
   case maps:find(connection_pid, State) of
     {ok, Pid} ->
-      emp_connection:send_message(Pid, Message);
+      {reply, emp_connection:send_message(Pid, Message), State};
     error ->
-      {error, connection_unavailable}
+      {reply, {error, connection_unavailable}, State}
   end;
 
 handle_call(Msg, From, State) ->

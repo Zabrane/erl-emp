@@ -25,10 +25,10 @@
 
 -type options() :: #{}.
 
-%% -type state() :: #{options := options(),
-%%                    socket => emp_socket:socket(),
-%%                    address := inet:ip_address(),
-%%                    port := inet:port_number()}.
+-type state() :: #{options := options(),
+                   socket => emp_socket:socket(),
+                   address := inet:ip_address(),
+                   port := inet:port_number()}.
 
 -spec start_link(Address, Port, options()) -> Result when
     Address :: inet:ip_address(),
@@ -54,10 +54,13 @@ terminate(_Reason, #{socket := Socket}) ->
 terminate(_Reason, _State) ->
   ok.
 
-handle_call({send_message, Message}, _From, State = #{socket := Socket}) ->
-  Data = emp_proto:encode_envelope(Message),
-  emp_socket:send(Socket, Data),
-  {noreply, State};
+handle_call({send_message, Message}, _From, State) ->
+  case do_send_message(Message, State) of
+    ok ->
+      {reply, ok, State};
+    {error, Reason} ->
+      {reply, {error, Reason}, State}
+  end;
 
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
@@ -65,7 +68,7 @@ handle_call(Msg, From, State) ->
 
 handle_cast({socket, Socket}, State) ->
   State2 = State#{socket => Socket},
-  emp_socket:setopts(Socket, [{active, 1}]),
+  ok = emp_socket:setopts(Socket, [{active, 1}]),
   {noreply, State2};
 
 handle_cast(Msg, State) ->
@@ -81,6 +84,30 @@ handle_info({Event, _}, State) when
     Event =:= tcp_passive; Event =:= ssl_passive ->
   {noreply, State};
 
+handle_info({Event, _, Data}, State = #{socket := Socket}) when
+    Event =:= tcp; Event =:= ssl ->
+  case emp_proto:decode_message(Data) of
+    {ok, _Message} ->
+      %% TODO handle the message
+      ok = emp_socket:setopts(Socket, [{active, 1}]),
+      {noreply, State};
+    {error, Reason} ->
+      ?LOG_ERROR("invalid data: ~p", [Reason]),
+      send_error(protocol_error, "invalid data: ~p", [Reason], State),
+      {stop, {invalid_data, Reason}, State}
+  end;
+
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
+
+-spec do_send_message(emp_proto:message(), state()) -> ok | {error, term()}.
+do_send_message(Message, #{socket := Socket}) ->
+  Data = emp_proto:encode_message(Message),
+  emp_socket:send(Socket, Data).
+
+-spec send_error(emp_proto:error_code(), io:format(), [term()], state()) ->
+        ok | {error, term()}.
+send_error(Code, Format, Args, State) ->
+  Message = emp_proto:error_message(Code, Format, Args),
+  do_send_message(Message, State).
