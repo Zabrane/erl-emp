@@ -56,6 +56,7 @@ handle_cast(accept, State = #{socket := Socket}) ->
           {noreply, State};
         {error, Reason} ->
           ?LOG_ERROR("cannot obtain peer address and port: ~p", Reason),
+          emp_socket:close(ConnSocket),
           gen_server:cast(self(), accept),
           {noreply, State}
       end;
