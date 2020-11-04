@@ -30,7 +30,8 @@
                      port => inet:port_number(),
                      transport => emp_socket:transport(),
                      connection_timeout => timeout(),
-                     socket_options => emp_socket:connect_options()}.
+                     socket_options => emp_socket:connect_options(),
+                     connection_options => emp_connection:options()}.
 
 -type state() :: #{options := options(),
                    backoff := backoff:backoff(),
@@ -103,7 +104,7 @@ handle_info(Msg, State) ->
 
 -spec schedule_connection(backoff:backoff()) -> ok.
 schedule_connection(Backoff) ->
-  timer:send_after(backoff:get(Backoff), self(), connect),
+  {ok, _} = timer:send_after(backoff:get(Backoff), self(), connect),
   ok.
 
 -spec connect(state()) -> {ok, state()} | {error, term()}.
@@ -138,8 +139,8 @@ connect(State = #{options := Options}) ->
                        inet:ip_address(), inet:port_number(),
                        state()) ->
         pid().
-spawn_connection(Socket, Address, Port, _State) ->
-  ConnOptions = #{},
+spawn_connection(Socket, Address, Port, #{options := Options}) ->
+  ConnOptions = maps:get(connection_options, Options, #{}),
   {ok, Pid} = emp_connection:start_link(Address, Port, ConnOptions),
   ok = emp_socket:controlling_process(Socket, Pid),
   gen_server:cast(Pid, {socket, Socket}),

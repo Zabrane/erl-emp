@@ -29,7 +29,8 @@
 -type options() :: #{address => inet:socket_address(),
                      port => inet:port_number(),
                      transport => emp_socket:transport(),
-                     socket_options => emp_socket:listen_options()}.
+                     socket_options => emp_socket:listen_options(),
+                     connection_options => emp_connection:options()}.
 
 -type state() :: #{options := options(),
                    socket => emp_socket:socket()}.

@@ -23,7 +23,7 @@
 
 -export_type([options/0]).
 
--type options() :: #{}.
+-type options() :: #{ping_interval := pos_integer()}.
 
 -type state() :: #{options := options(),
                    socket => emp_socket:socket(),
@@ -43,6 +43,8 @@ send_message(Pid, Message) ->
 
 init([Address, Port, Options]) ->
   logger:update_process_metadata(#{domain => [emp, connection]}),
+  PingInterval = maps:get(ping_interval, Options, 10_000),
+  {ok, _} = timer:send_interval(PingInterval, self(), send_ping),
   State = #{options => Options,
             address => Address,
             port => Port},
@@ -55,10 +57,11 @@ terminate(_Reason, _State) ->
   ok.
 
 handle_call({send_message, Message}, _From, State) ->
-  case do_send_message(Message, State) of
-    ok ->
-      {reply, ok, State};
-    {error, Reason} ->
+  try
+    do_send_message(Message, State),
+    {reply, ok, State}
+  catch
+    error:Reason ->
       {reply, {error, Reason}, State}
   end;
 
@@ -75,6 +78,10 @@ handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
+handle_info(send_ping, State) ->
+  do_send_message(emp_proto:ping_message(), State),
+  {noreply, State};
+
 handle_info({Event, _}, _State) when
     Event =:= tcp_closed; Event =:= ssl_closed ->
   ?LOG_INFO("connection closed"),
@@ -87,10 +94,9 @@ handle_info({Event, _}, State) when
 handle_info({Event, _, Data}, State = #{socket := Socket}) when
     Event =:= tcp; Event =:= ssl ->
   case emp_proto:decode_message(Data) of
-    {ok, _Message} ->
-      %% TODO handle the message
+    {ok, Message} ->
       ok = emp_socket:setopts(Socket, [{active, 1}]),
-      {noreply, State};
+      {noreply, handle_message(Message, State)};
     {error, Reason} ->
       ?LOG_ERROR("invalid data: ~p", [Reason]),
       send_error(protocol_error, "invalid data: ~p", [Reason], State),
@@ -101,13 +107,26 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec do_send_message(emp_proto:message(), state()) -> ok | {error, term()}.
+-spec do_send_message(emp_proto:message(), state()) -> ok.
 do_send_message(Message, #{socket := Socket}) ->
   Data = emp_proto:encode_message(Message),
-  emp_socket:send(Socket, Data).
+  case emp_socket:send(Socket, Data) of
+    ok ->
+      ok;
+    {error, Reason} ->
+      error({send, Reason})
+  end.
 
--spec send_error(emp_proto:error_code(), io:format(), [term()], state()) ->
-        ok | {error, term()}.
+-spec send_error(emp_proto:error_code(), io:format(), [term()], state()) -> ok.
 send_error(Code, Format, Args, State) ->
   Message = emp_proto:error_message(Code, Format, Args),
   do_send_message(Message, State).
+
+-spec handle_message(emp_proto:message(), state()) -> state().
+handle_message(#{type := ping}, State) ->
+  do_send_message(emp_proto:pong_message(), State),
+  State;
+handle_message(#{type := pong}, State) ->
+  State;
+handle_message(Message, _State) ->
+  error({unhandled_message, Message}).
