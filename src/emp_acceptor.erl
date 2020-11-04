@@ -88,9 +88,9 @@ handle_info(Msg, State) ->
                        inet:ip_address(), inet:port_number(),
                        state()) ->
         ok.
-spawn_connection(Socket = {_, S}, Address, Port, _State) ->
+spawn_connection(Socket, Address, Port, _State) ->
   ConnOptions = #{},
   {ok, Pid} = emp_connection:start_link(Address, Port, ConnOptions),
-  gen_tcp:controlling_process(S, Pid),
+  ok = emp_socket:controlling_process(Socket, Pid),
   gen_server:cast(Pid, {socket, Socket}),
   ok.

@@ -16,8 +16,7 @@
 
 -export([connect/5, listen/3, accept/2,
          sockname/1, peername/1, setopts/2,
-         send/2,
-         close/1]).
+         controlling_process/2, send/2, close/1]).
 
 -export_type([transport/0, socket/0,
               connect_options/0, listen_options/0]).
@@ -80,9 +79,16 @@ accept({tcp, Socket}, Timeout) ->
       {error, Reason}
   end;
 accept({tls, Socket}, Timeout) ->
-  case ssl:handshake(Socket, Timeout) of
-    {ok, ConnSocket} ->
-      {ok, {tls, ConnSocket}};
+  %% TODO Timeout should cover both operations
+  case ssl:transport_accept(Socket, Timeout) of
+    {ok, ConnSocket1} ->
+      case ssl:handshake(ConnSocket1, Timeout) of
+        {ok, ConnSocket2} ->
+          {ok, {tls, ConnSocket2}};
+        {error, Reason} ->
+          ssl:close(ConnSocket1),
+          {error, Reason}
+      end;
     {error, Reason} ->
       {error, Reason}
   end.
@@ -106,6 +112,12 @@ setopts({tcp, Socket}, Options) ->
   inet:setopts(Socket, Options);
 setopts({tls, Socket}, Options) ->
   ssl:setopts(Socket, Options).
+
+-spec controlling_process(socket(), pid()) -> ok | {error, term()}.
+controlling_process({tcp, Socket}, Pid) ->
+  gen_tcp:controlling_process(Socket, Pid);
+controlling_process({tls, Socket}, Pid) ->
+  ssl:controlling_process(Socket, Pid).
 
 -spec send(socket(), iodata()) -> ok | {error, term()}.
 send({tcp, Socket}, Data) ->
