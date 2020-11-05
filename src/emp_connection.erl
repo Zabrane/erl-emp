@@ -43,8 +43,6 @@ send_message(Pid, Message) ->
 
 init([Address, Port, Options]) ->
   logger:update_process_metadata(#{domain => [emp, connection]}),
-  PingInterval = maps:get(ping_interval, Options, 10_000),
-  {ok, _} = timer:send_interval(PingInterval, self(), send_ping),
   State = #{options => Options,
             address => Address,
             port => Port},
@@ -69,9 +67,11 @@ handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {noreply, State}.
 
-handle_cast({socket, Socket}, State) ->
+handle_cast({socket, Socket}, State = #{options := Options}) ->
   State2 = State#{socket => Socket},
   ok = emp_socket:setopts(Socket, [{active, 1}]),
+  PingInterval = maps:get(ping_interval, Options, 10_000),
+  {ok, _} = timer:send_interval(PingInterval, self(), send_ping),
   {noreply, State2};
 
 handle_cast(Msg, State) ->
