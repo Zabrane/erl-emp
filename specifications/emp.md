@@ -167,9 +167,8 @@ The following error codes are currently defined:
 | 0    | Internal error. Used for system and network errors.                                                    |
 | 1    | Protocol error. Indicates that an invalid message was received, or that the message flow is incorrect. |
 | 2    | Invalid request identifier.                                                                            |
-| 3    | Request timeout.                                                                                                       |
-| 4    | Invalid compression scheme.                                                                            |
-| 5    | Invalid compressed data.                                                                               |
+| 3    | Invalid compression scheme.                                                                            |
+| 4    | Invalid compressed data.                                                                               |
 
 ### Data
 The `data` message is used to transfer application data. The content and

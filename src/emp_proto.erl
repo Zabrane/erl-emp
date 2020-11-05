@@ -52,7 +52,6 @@
 -type error_code() :: internal_error
                     | protocol_error
                     | invalid_request_id
-                    | request_timeout
                     | invalid_compression_scheme
                     | invalid_compressed_data.
 
@@ -137,9 +136,8 @@ encode_message_type(data) -> 5.
 encode_error_code(internal_error) -> 0;
 encode_error_code(protocol_error) -> 1;
 encode_error_code(invalid_request_id) -> 2;
-encode_error_code(request_timeout) -> 3;
-encode_error_code(invalid_compression_scheme) -> 4;
-encode_error_code(invalid_compressed_data) -> 5.
+encode_error_code(invalid_compression_scheme) -> 3;
+encode_error_code(invalid_compressed_data) -> 4.
 
 -spec encode_extensions([extension()]) -> iodata().
 encode_extensions(Extensions) ->
@@ -296,9 +294,8 @@ decode_body(Data, Message = #{type := data}) ->
 decode_error_code(0) -> internal_error;
 decode_error_code(1) -> protocol_error;
 decode_error_code(2) -> invalid_request_id;
-decode_error_code(3) -> request_timeout;
-decode_error_code(4) -> invalid_compression_scheme;
-decode_error_code(5) -> invalid_compressed_data;
+decode_error_code(3) -> invalid_compression_scheme;
+decode_error_code(4) -> invalid_compressed_data;
 decode_error_code(Code) ->
   throw({error, {unknown_error_code, Code}}).
 

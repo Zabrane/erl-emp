@@ -42,7 +42,6 @@ encode_decode_message_test_() ->
               emp_proto:error_message(internal_error, "a: ~b", [42]),
               emp_proto:error_message(protocol_error, "test"),
               emp_proto:error_message(invalid_request_id, "test"),
-              emp_proto:error_message(request_timeout, "test"),
               emp_proto:error_message(invalid_compression_scheme, "test"),
               emp_proto:error_message(invalid_compressed_data, "test"),
               emp_proto:data_message(<<>>),
