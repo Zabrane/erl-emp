@@ -185,6 +185,7 @@ procedure:
   - if this is a `hello` message, check that the version field contains a
     supported version number: if it does, the handshake is successful; if it
     does not, close the connection and terminate.
+  - If this is any other message, close the connection and terminate.
 
 After conclusion of the handshake, peers can engage in any of the exchanges
 described below. These exchanges must not be initiated during the handshake

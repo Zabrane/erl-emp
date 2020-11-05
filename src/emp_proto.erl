@@ -14,7 +14,9 @@
 
 -module(emp_proto).
 
--export([hello_message/0, bye_message/0, ping_message/0, pong_message/0,
+-export([version/0,
+         hello_message/0, hello_message/1,
+         bye_message/0, ping_message/0, pong_message/0,
          error_message/2, error_message/3, data_message/1,
          encode_message/1,
          decode_message/1,
@@ -67,9 +69,17 @@
 
 -type compression_scheme() :: identity | gzip.
 
+-spec version() -> version().
+version() ->
+  1.
+
 -spec hello_message() -> message().
 hello_message() ->
-  #{type => hello, body => #{version => 1}}.
+  #{type => hello, body => #{version => version()}}.
+
+-spec hello_message(version()) -> message().
+hello_message(Version) ->
+  #{type => hello, body => #{version => Version}}.
 
 -spec bye_message() -> message().
 bye_message() ->

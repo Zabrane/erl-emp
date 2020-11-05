@@ -69,10 +69,17 @@ handle_call(Msg, From, State) ->
 
 handle_cast({socket, Socket}, State = #{options := Options}) ->
   State2 = State#{socket => Socket},
-  ok = emp_socket:setopts(Socket, [{active, 1}]),
-  PingInterval = maps:get(ping_interval, Options, 10_000),
-  {ok, _} = timer:send_interval(PingInterval, self(), send_ping),
-  {noreply, State2};
+  case handshake(State2) of
+    {ok, State3} ->
+      ?LOG_DEBUG("handshake finished"),
+      ok = emp_socket:setopts(Socket, [{active, 1}]),
+      PingInterval = maps:get(ping_interval, Options, 10_000),
+      {ok, _} = timer:send_interval(PingInterval, self(), send_ping),
+      {noreply, State3};
+    {error, Reason} ->
+      ?LOG_ERROR("handshake failed: ~p", [Reason]),
+      {stop, {error, Reason}, State2}
+  end;
 
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
@@ -107,6 +114,30 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
+-spec handshake(state()) -> {ok, state()} | {error, term()}.
+handshake(State = #{socket := Socket}) ->
+  do_send_message(emp_proto:hello_message(), State),
+  case emp_socket:recv(Socket, 0, 5000) of
+    {ok, Data} ->
+      CurrentVersion = emp_proto:version(),
+      case emp_proto:decode_message(Data) of
+        {ok, #{type := hello, body := #{version := Version}}} when
+            Version =< CurrentVersion ->
+          {ok, State};
+        {ok, #{type := hello, body := #{version := Version}}} ->
+          {error, {unsupported_version, Version}};
+        {ok, Message} ->
+          {error, {unexpected_message, Message}};
+        {error, Reason} ->
+          send_error(protocol_error, "invalid data: ~p", [Reason], State),
+          {error, {invalid_data, Reason}}
+      end;
+    {error, timeout} ->
+      {error, no_handshake_response};
+    {error, Reason} ->
+      {error, {recv, Reason}}
+  end.
+
 -spec do_send_message(emp_proto:message(), state()) -> ok.
 do_send_message(Message, #{socket := Socket}) ->
   Data = emp_proto:encode_message(Message),
@@ -129,4 +160,4 @@ handle_message(#{type := ping}, State) ->
 handle_message(#{type := pong}, State) ->
   State;
 handle_message(Message, _State) ->
-  error({unhandled_message, Message}).
+  error({unexpected_message, Message}).

@@ -16,7 +16,7 @@
 
 -export([connect/5, listen/3, accept/2,
          sockname/1, peername/1, setopts/2,
-         controlling_process/2, send/2, close/1]).
+         controlling_process/2, send/2, recv/3, close/1]).
 
 -export_type([transport/0, socket/0,
               connect_options/0, listen_options/0]).
@@ -124,6 +124,13 @@ send({tcp, Socket}, Data) ->
   gen_tcp:send(Socket, Data);
 send({tls, Socket}, Data) ->
   ssl:send(Socket, Data).
+
+-spec recv(socket(), non_neg_integer(), timeout()) ->
+        {ok, binary()} | {error, term()}.
+recv({tcp, Socket}, Length, Timeout) ->
+  gen_tcp:recv(Socket, Length, Timeout);
+recv({tls, Socket}, Length, Timeout) ->
+  ssl:recv(Socket, Length, Timeout).
 
 -spec close(socket()) -> ok | {error, term()}.
 close({tcp, Socket}) ->

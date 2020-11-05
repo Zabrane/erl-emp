@@ -113,7 +113,8 @@ connect(State = #{options := Options}) ->
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, emp:default_port()),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  SocketOptions = [{mode, binary},
+  SocketOptions = [{active, false},
+                   {mode, binary},
                    {packet, 4}] ++
     maps:get(socket_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
