@@ -164,10 +164,12 @@ The following error codes are currently defined:
 
 | Code | Description                                                                                            |
 |------|--------------------------------------------------------------------------------------------------------|
-| 0    | Unspecified error. Used for any error which does not match an existing code.                           |
-| 1    | IO error. Used for any error associated with socket operations.                                        |
-| 2    | Timeout. Indicate that a network operation timed out.                                                  |
-| 3    | Protocol error. Indicates that an invalid message was received, or that the message flow is incorrect. |
+| 0    | Internal error. Used for system and network errors.                                                    |
+| 1    | Protocol error. Indicates that an invalid message was received, or that the message flow is incorrect. |
+| 2    | Invalid request identifier.                                                                            |
+| 3    | Request timeout.                                                                                                       |
+| 4    | Invalid compression scheme.                                                                            |
+| 5    | Invalid compressed data.                                                                               |
 
 ### Data
 The `data` message is used to transfer application data. The content and
@@ -252,13 +254,14 @@ Fields have the following meaning:
 - Request identifier: a 64 bit integer identifying the request-response pair.
 
 An implementation must ensure it never send two requests with the same
-identifier. The zero identifier is reserved and must not be used. For that
-reason, implementations should keep a 64 bit counter starting at zero, and
-increment it before sending each request.
+identifier. The zero identifier is reserved and must not be used.
+Implementations should keep a 64 bit counter starting at zero, and increment
+it before sending each request.
 
 After receiving a request and processing it, an implementation must send a
 response with the same request identifier. Receiving a response with an
-identifier which does not match any pending request is a protocol error.
+identifier which does not match any pending request must trigger an error with
+code 2 (invalid request identifier).
 
 ## Compression
 The compression extension allows compression of the message body.

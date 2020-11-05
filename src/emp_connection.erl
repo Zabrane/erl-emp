@@ -125,8 +125,10 @@ handshake(State = #{socket := Socket}) ->
             Version =< CurrentVersion ->
           {ok, State};
         {ok, #{type := hello, body := #{version := Version}}} ->
+          send_error(protocol_error, "unsupported version", State),
           {error, {unsupported_version, Version}};
         {ok, Message} ->
+          send_error(protocol_error, "unexpected message", State),
           {error, {unexpected_message, Message}};
         {error, Reason} ->
           send_error(protocol_error, "invalid data: ~p", [Reason], State),
@@ -147,6 +149,11 @@ do_send_message(Message, #{socket := Socket}) ->
     {error, Reason} ->
       error({send, Reason})
   end.
+
+-spec send_error(emp_proto:error_code(), binary() | string(), state()) -> ok.
+send_error(Code, Description, State) ->
+  Message = emp_proto:error_message(Code, Description),
+  do_send_message(Message, State).
 
 -spec send_error(emp_proto:error_code(), io:format(), [term()], state()) -> ok.
 send_error(Code, Format, Args, State) ->
