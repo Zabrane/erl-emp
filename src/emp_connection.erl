@@ -159,5 +159,10 @@ handle_message(#{type := ping}, State) ->
   State;
 handle_message(#{type := pong}, State) ->
   State;
+handle_message(#{type := error,
+                 body := #{code := Code, description := Description}},
+               _State) ->
+  ?LOG_WARNING("peer error ~p: ~ts", [Code, Description]),
+  exit(normal);
 handle_message(Message, _State) ->
   error({unexpected_message, Message}).
