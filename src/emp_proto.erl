@@ -18,6 +18,7 @@
          hello_message/0, hello_message/1,
          bye_message/0, ping_message/0, pong_message/0,
          error_message/2, error_message/3, data_message/1,
+         compress_message/2,
          encode_message/1,
          decode_message/1,
          encode_string/1, decode_string/1]).
@@ -33,7 +34,7 @@
 -type message_type() :: hello | bye | ping | pong | error | data.
 
 -type message() :: #{type := message_type(),
-                     extensions => [extension()],
+                     extensions => [extension()], % stored in reverse order
                      body => message_body()}.
 
 -type message_body() :: hello_message_body()
@@ -107,6 +108,31 @@ error_message(Code, Format, Args) ->
 -spec data_message(Body :: iodata()) -> message().
 data_message(Body) ->
   #{type => data, body => Body}.
+
+-spec compress_message(message(), compression_scheme()) ->
+        {ok, message()} | {error, term()}.
+compress_message(Message = #{type := data}, Scheme) ->
+  Body = maps:get(body, Message, []),
+  case compress_body(iolist_to_binary(Body), Scheme) of
+    {ok, Body2} ->
+      Extension = {compression, #{scheme => Scheme}},
+      Message2 = add_extension(Extension, Message#{body => Body2}),
+      {ok, Message2};
+    {error, Reason} ->
+      {error, Reason}
+  end.
+
+-spec compress_body(binary(), compression_scheme()) ->
+        {ok, iodata()} | {error, term()}.
+compress_body(Data, identity) ->
+  {ok, Data};
+compress_body(Data, gzip) ->
+  try
+    {ok, zlib:gzip(Data)}
+  catch
+    error:Reason ->
+      {error, Reason}
+  end.
 
 -spec encode_message(message()) -> iodata().
 encode_message(Message = #{type := Type}) ->

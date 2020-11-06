@@ -288,6 +288,10 @@ scheme is unknown, or is known but not implemented, the implementation must
 signal an error code 3 (invalid compression scheme). If decompression fails,
 the implementation must signal an error code 4 (invalid compressed data).
 
+The compression extension must only be applied to messages of type data. An
+implementation receiving any other message with a compression extension must
+signal an error code 1 (protocol error).
+
 The content of the extension block is encoded as follows:
 
      0                   1                   2                   3
