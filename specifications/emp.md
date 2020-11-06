@@ -26,6 +26,26 @@ A message is a unit of information transmited from one peer to the other. Each
 message is represented by an envelope, containing a header, zero or more
 extension blocks, and an optional body.
 
+# Extensions
+Extensions are a mechanism to add new features to the protocol without
+modifying its structure. Each message can include a sequence of extensions.
+
+Since extensions can be associated with transformations of the body, for
+example with compression, the order of extensions is significant. Adding an
+extension to a message means adding the extension to the end of the current
+list of extensions, applying the transformation if there is one.
+
+When an implementation receives a message, it may decide to reverse the
+transformations associated with extensions, e.g. decompressing a compressed
+message. In that case:
+
+- The implementation must either reverse all transformations or none.
+- Extensions must be processed starting from the last one.
+- Extensions associated with a transformation which was reversed are removed
+  from the message. As a consequence, if an implementation reverse extension
+  transformations, the only extensions left in a message are those which are
+  not associated with any transformation.
+
 ## Format
 ### Envelope
 The envelope contains all parts of the message; it is encoded as follows:
@@ -58,12 +78,8 @@ Fields have the following meaning:
   header.
 
 ### Extensions
-Extensions are a mechanism to add new features to the protocol without
-modifying its structure. Each message can include an arbitrary number of
-extension block, each block containing information associated with an
-extension.
-
-An extension block is encoded as follows:
+Extensions are represented as data blocks. An extension block is encoded as
+follows:
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -263,7 +279,14 @@ identifier which does not match any pending request must trigger an error with
 code 2 (invalid request identifier).
 
 ## Compression
-The compression extension allows compression of the message body.
+The compression extension allows compression of the message body. When the
+extension is added to a message, the body is compressed using the compression
+scheme defined in the extension block.
+
+Reversing the transformation means decompressing the body. If the compression
+scheme is unknown, or is known but not implemented, the implementation must
+signal an error code 3 (invalid compression scheme). If decompression fails,
+the implementation must signal an error code 4 (invalid compressed data).
 
 The content of the extension block is encoded as follows:
 
