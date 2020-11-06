@@ -102,8 +102,18 @@ handle_info({Event, _, Data}, State = #{socket := Socket}) when
     Event =:= tcp; Event =:= ssl ->
   case emp_proto:decode_message(Data) of
     {ok, Message} ->
-      ok = emp_socket:setopts(Socket, [{active, 1}]),
-      {noreply, handle_message(Message, State)};
+      case emp_proto:interpret_message_extensions(Message) of
+        {ok, Message2} ->
+          ok = emp_socket:setopts(Socket, [{active, 1}]),
+          {noreply, handle_message(Message2, State)};
+        {error, Reason = {invalid_compressed_data, Reason2}} ->
+          send_error(invalid_compressed_data, "invalid body: ~p", [Reason2],
+                     State),
+          {stop, {invalid_message, Reason}};
+        {error, Reason} ->
+          send_error(protocol_error, "invalid message: ~p", [Reason], State),
+          {stop, {invalid_message, Reason}}
+      end;
     {error, Reason} ->
       ?LOG_ERROR("invalid data: ~p", [Reason]),
       send_error(protocol_error, "invalid data: ~p", [Reason], State),
@@ -171,5 +181,9 @@ handle_message(#{type := error,
                _State) ->
   ?LOG_WARNING("peer error ~p: ~ts", [Code, Description]),
   exit(normal);
+handle_message(Message = #{type := data}, State) ->
+  %% TODO
+  ?LOG_DEBUG("received data message ~p", [Message]),
+  State;
 handle_message(Message, _State) ->
   error({unexpected_message, Message}).

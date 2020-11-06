@@ -19,6 +19,7 @@
          bye_message/0, ping_message/0, pong_message/0,
          error_message/2, error_message/3, data_message/1,
          compress_message/2,
+         interpret_message_extensions/1,
          encode_message/1,
          decode_message/1,
          encode_string/1, decode_string/1]).
@@ -133,6 +134,46 @@ compress_body(Data, gzip) ->
     error:Reason ->
       {error, Reason}
   end.
+
+-spec decompress_body(binary(), compression_scheme()) ->
+        {ok, iodata()} | {error, term()}.
+decompress_body(Data, identity) ->
+  {ok, Data};
+decompress_body(Data, gzip) ->
+  try
+    {ok, zlib:gunzip(Data)}
+  catch
+    error:Reason ->
+      {error, Reason}
+  end.
+
+-spec interpret_message_extensions(message()) ->
+        {ok, message()} | {error, Reason} when
+    Reason :: {invalid_compressed_data, term()}
+            | term().
+interpret_message_extensions(Message) ->
+  Extensions = maps:get(extensions, Message, []),
+  Message2 = maps:remove(extensions, Message),
+  try
+    Message3 = lists:foldl(fun interpret_message_extension/2,
+                           Message2, Extensions),
+    {ok, Message3}
+  catch
+    throw:{error, Reason} ->
+      {error, Reason}
+  end.
+
+-spec interpret_message_extension(extension(), message()) -> message().
+interpret_message_extension({compression, #{scheme := Scheme}}, Message) ->
+  Body = maps:get(body, Message, []),
+  case decompress_body(Body, Scheme) of
+    {ok, Body2} ->
+      Message#{body => Body2};
+    {error, Reason} ->
+      throw({error, {invalid_compressed_data, Reason}})
+  end;
+interpret_message_extension(Extension, Message) ->
+  add_extension(Extension, Message).
 
 -spec encode_message(message()) -> iodata().
 encode_message(Message = #{type := Type}) ->
