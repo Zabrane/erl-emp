@@ -23,84 +23,23 @@ transport protocol. The reference implementation supports TCP and TLS.
 
 # Messages
 A message is a unit of information transmited from one peer to the other. Each
-message is represented by an envelope, containing a header, zero or more
-extension blocks, and an optional body.
-
-# Extensions
-Extensions are a mechanism to add new features to the protocol without
-modifying its structure. Each message can include a sequence of extensions.
-
-Since extensions can be associated with transformations of the body, for
-example with compression, the order of extensions is significant. Adding an
-extension to a message means adding the extension to the end of the current
-list of extensions, applying the transformation if there is one.
-
-When an implementation receives a message, it may decide to reverse the
-transformations associated with extensions, e.g. decompressing a compressed
-message. In that case:
-
-- The implementation must either reverse all transformations or none.
-- Extensions must be processed starting from the last one.
-- Extensions associated with a transformation which was reversed are removed
-  from the message. As a consequence, if an implementation reverse extension
-  transformations, the only extensions left in a message are those which are
-  not associated with any transformation.
+message is represented by an envelope containing a header and an optional
+body.
 
 ## Format
-### Envelope
-The envelope contains all parts of the message; it is encoded as follows:
-
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                             Size                              |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                            Content                            |
-    |                              ...                              |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-The size of the envelope is a 32 bit unsigned integer, and represents the size
-of the whole message, excluding the size field itself.
-
 ### Header
 The header contains information about the message and its content.
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |      Type     |E|                 Unused                      |
+    |      Type     |                   Unused                      |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
 
 Fields have the following meaning:
 
 - Type: a 8 bit integer identifying the type of the message.
-- E: a bit indicating if there is at least one extension block after the
-  header.
-
-### Extensions
-Extensions are represented as data blocks. An extension block is encoded as
-follows:
-
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                             Size                              |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    | Extension id  |M|                 Unused                      |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                            Content                            |
-    |                              ...                              |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-Fields have the following meaning:
-
-- Size: the size of the entire extension block, excluding the size field, as a
-  32 bit integer.
-- Extension id: the numeric identifier of the extension as 8 bit integer.
-- M: a bit indicating if there is more extension blocks after this one.
-- Content: arbitrary data associated with the extension. The structure,
-  encoding and meaning of any data in this field are defined by the extension
-  identified by the extension id field.
 
 ### Body
 The content of the body depends on the type of the message. Some message may
@@ -112,14 +51,16 @@ a 8 bit integer.
 
 The following message types are currently defined:
 
-| Identifier | Type    |
-|------------|---------|
-| 0          | `hello` |
-| 1          | `bye`   |
-| 2          | `ping`  |
-| 3          | `pong`  |
-| 4          | `error` |
-| 5          | `data`  |
+| Code | Type       |
+|------|------------|
+| 0    | `hello`    |
+| 1    | `bye`      |
+| 2    | `ping`     |
+| 3    | `pong`     |
+| 4    | `error`    |
+| 5    | `data`     |
+| 6    | `request`  |
+| 7    | `response` |
 
 ### Hello
 The `hello` message is sent by a peer after the connection has been
@@ -183,12 +124,51 @@ The following error codes are currently defined:
 | 0    | Internal error. Used for system and network errors.                                                    |
 | 1    | Protocol error. Indicates that an invalid message was received, or that the message flow is incorrect. |
 | 2    | Invalid request identifier.                                                                            |
-| 3    | Invalid compression scheme.                                                                            |
-| 4    | Invalid compressed data.                                                                               |
 
 ### Data
 The `data` message is used to transfer application data. The content and
 format of the body is defined by the application.
+
+### Request
+The `request` message is used to send messages which expect a response.
+
+The body is encoded as follows:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                         Identifier                            |
+    |                                                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                           Data                                |
+    |                            ...                                |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Fields have the following meaning:
+
+- Identifier: a 64 bit integer identifying the request.
+- Data: application data.
+
+### Response
+The `response` message is used to reply to requests.
+
+The body is encoded as follows:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                         Identifier                            |
+    |                                                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                           Data                                |
+    |                            ...                                |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Fields have the following meaning:
+
+- Identifier: a 64 bit integer identifying the request the response is
+  associated with.
+- Data: application data.
 
 # Communication flow
 ## Handshake
@@ -234,79 +214,20 @@ received in this delay, the initiator of the ping-pong procedure should
 consider the connection inactive and close it. In that situation, it may try
 to send an `error` message before closing the connection.
 
-## Data
+## Data messages
 Peers can send `data` messages at any moment. The format of the `data` message
 is not defined by the EMP protocol; applications are free to represent data as
 they see fit.
 
-# Extensions
-The following extensions are supported:
+## Requests and responses
+Peers can send `request` messages at any moment.
 
-| Id | Name             |
-| -- | ----             |
-| 0  | request-response |
-| 1  | compression      |
-
-## Request-response
-The request-response extension introduces a message exchange pattern where a
-peer can send a request message and receive a correlated response.
-
-The content of the extension block is encoded as follows:
-
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |R|                         Unused                              |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                     Request identifier                        |
-    |                                                               |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-Fields have the following meaning:
-
-- R: a bit indicating whether the message is a request or a response. If set
-  to 1, the message is a request. If set to 0, the message is a response.
-- Request identifier: a 64 bit integer identifying the request-response pair.
-
-An implementation must ensure it never send two requests with the same
-identifier. The zero identifier is reserved and must not be used.
-Implementations should keep a 64 bit counter starting at zero, and increment
-it before sending each request.
+Each request is identified by a unique 64 bit integer. An implementation must
+ensure it never send two requests with the same identifier. Implementations
+should keep a 64 bit counter starting at zero and increment it after sending
+each request.
 
 After receiving a request and processing it, an implementation must send a
-response with the same request identifier. Receiving a response with an
-identifier which does not match any pending request must trigger an error with
-code 2 (invalid request identifier).
-
-## Compression
-The compression extension allows compression of the message body. When the
-extension is added to a message, the body is compressed using the compression
-scheme defined in the extension block.
-
-Reversing the transformation means decompressing the body. If the compression
-scheme is unknown, or is known but not implemented, the implementation must
-signal an error code 3 (invalid compression scheme). If decompression fails,
-the implementation must signal an error code 4 (invalid compressed data).
-
-The compression extension must only be applied to messages of type data. An
-implementation receiving any other message with a compression extension must
-signal an error code 1 (protocol error).
-
-The content of the extension block is encoded as follows:
-
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |     Scheme    |                    Unused                     |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-Fields have the following meaning:
-
-- Scheme: the compression scheme used for the body of the message.
-
-The following compression scheme are supported:
-
-| Scheme | Description                |
-| ------ | -----------                |
-| 0      | Identity (no compression). |
-| 1      | GZIP (RFC 1952).           |
+`response` message with the same request identifier. Receiving a response with
+an identifier which does not match any pending request must trigger an error
+with code 2 (invalid request identifier).

@@ -42,10 +42,10 @@ encode_decode_message_test_() ->
               emp_proto:error_message(internal_error, "a: ~b", [42]),
               emp_proto:error_message(protocol_error, "test"),
               emp_proto:error_message(invalid_request_id, "test"),
-              emp_proto:error_message(invalid_compression_scheme, "test"),
-              emp_proto:error_message(invalid_compressed_data, "test"),
               emp_proto:data_message(<<>>),
-              emp_proto:data_message(<<1, 2, 3>>)],
+              emp_proto:data_message(<<1, 2, 3>>),
+              emp_proto:request_message(0, <<>>),
+              emp_proto:response_message(42, <<1, 2, 3>>)],
   [encode_decode_message_(M) || M <- Messages].
 
 encode_decode_message_(Message) ->
