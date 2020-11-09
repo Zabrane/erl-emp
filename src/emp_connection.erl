@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/3, send_message/2]).
+-export([start_link/3, send_message/2, send_request/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([options/0]).
@@ -28,7 +28,12 @@
 -type state() :: #{options := options(),
                    socket => emp_socket:socket(),
                    address := inet:ip_address(),
-                   port := inet:port_number()}.
+                   port := inet:port_number(),
+                   pending_requests := queue:queue(pending_request()),
+                   next_request_id := emp_proto:request_id()}.
+
+-type pending_request() :: #{id := emp_proto:request_id(),
+                             source := emp:gen_server_call_tag()}.
 
 -spec start_link(Address, Port, options()) -> Result when
     Address :: inet:ip_address(),
@@ -41,11 +46,18 @@ start_link(Address, Port, Options) ->
 send_message(Pid, Message) ->
   gen_server:call(Pid, {send_message, Message}, infinity).
 
+-spec send_request(pid(), iodata()) -> {ok, iodata()} | {error, term()}.
+send_request(Pid, Data) ->
+  gen_server:call(Pid, {send_request, Data}, infinity).
+
+-spec init(list()) -> {ok, state()}.
 init([Address, Port, Options]) ->
   logger:update_process_metadata(#{domain => [emp, connection]}),
   State = #{options => Options,
             address => Address,
-            port => Port},
+            port => Port,
+            pending_requests => queue:new(),
+            next_request_id => 1},
   {ok, State}.
 
 terminate(_Reason, #{socket := Socket}) ->
@@ -58,6 +70,22 @@ handle_call({send_message, Message}, _From, State) ->
   try
     do_send_message(Message, State),
     {reply, ok, State}
+  catch
+    error:Reason ->
+      {reply, {error, Reason}, State}
+  end;
+
+handle_call({send_request, Data}, From,
+            State = #{pending_requests := PendingRequests,
+                      next_request_id := Id}) ->
+  try
+    Message = emp_proto:request_message(Id, Data),
+    do_send_message(Message, State),
+    PendingRequest = #{id => Id, source => From},
+    State2 = State#{pending_requests => queue:in(PendingRequest,
+                                                 PendingRequests),
+                    next_request_id => Id+1},
+    {noreply, State2}
   catch
     error:Reason ->
       {reply, {error, Reason}, State}
@@ -103,7 +131,13 @@ handle_info({Event, _, Data}, State = #{socket := Socket}) when
   case emp_proto:decode_message(Data) of
     {ok, Message} ->
       ok = emp_socket:setopts(Socket, [{active, 1}]),
-      {noreply, handle_message(Message, State)};
+      case handle_message(Message, State) of
+        {ok, State2} ->
+          {noreply, State2};
+        {error, Reason} ->
+          ?LOG_ERROR("invalid message: ~p", [Reason]),
+          {stop, {invalid_message, Reason}, State}
+      end;
     {error, Reason} ->
       ?LOG_ERROR("invalid data: ~p", [Reason]),
       send_error(protocol_error, "invalid data: ~p", [Reason], State),
@@ -160,20 +194,46 @@ send_error(Code, Format, Args, State) ->
   Message = emp_proto:error_message(Code, Format, Args),
   do_send_message(Message, State).
 
--spec handle_message(emp_proto:message(), state()) -> state().
+-spec handle_message(emp_proto:message(), state()) ->
+        {ok, state()} | {error, term()}.
 handle_message(#{type := ping}, State) ->
   do_send_message(emp_proto:pong_message(), State),
-  State;
+  {ok, State};
 handle_message(#{type := pong}, State) ->
-  State;
+  {ok, State};
 handle_message(#{type := error,
                  body := #{code := Code, description := Description}},
                _State) ->
   ?LOG_WARNING("peer error ~p: ~ts", [Code, Description]),
   exit(normal);
 handle_message(Message = #{type := data}, State) ->
-  %% TODO
-  ?LOG_DEBUG("received data message ~p", [Message]),
-  State;
+  ?LOG_DEBUG("received data message ~p", [Message]), % XXX
+  %% TODO call data message handler
+  {ok, State};
+handle_message(Message = #{type := request,
+                           body := #{id := Id, data := _Data}}, State) ->
+  ?LOG_DEBUG("received request ~p", [Message]), % XXX
+  %% TODO call request message handler
+  ResponseData = <<"TODO">>,
+  Response = emp_proto:response_message(Id, ResponseData),
+  do_send_message(Response, State),
+  {ok, State};
+handle_message(Message = #{type := response,
+                           body := #{id := Id, data := Data}},
+               State = #{pending_requests := PendingRequests}) ->
+  ?LOG_DEBUG("received response ~p", [Message]), % XXX
+  case queue:out(PendingRequests) of
+    {{value, #{id := Id, source := Source}},
+     PendingRequests2} ->
+      gen_server:reply(Source, Data),
+      State2 = State#{pending_requests => PendingRequests2},
+      {ok, State2};
+    {{value, _}, _} ->
+      send_error(invalid_request_id, "invalid request id ~b", [Id], State),
+      {error, {invalid_request_id, Id}};
+    {empty, _} ->
+      send_error(invalid_request_id, "invalid request id ~b", [Id], State),
+      {error, {invalid_request_id, Id}}
+  end;
 handle_message(Message, _State) ->
   error({unexpected_message, Message}).

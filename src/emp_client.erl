@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([process_name/1, start_link/2, send_message/2]).
+-export([process_name/1, start_link/2, send_message/2, send_request/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([client_name/0, client_ref/0, options/0]).
@@ -51,6 +51,10 @@ start_link(Name, Options) ->
 send_message(Ref, Message) ->
   gen_server:call(Ref, {send_message, Message}, infinity).
 
+-spec send_request(client_ref(), iodata()) -> {ok, iodata()} | {error, term()}.
+send_request(Ref, Data) ->
+  gen_server:call(Ref, {send_request, Data}, infinity).
+
 init([Options]) ->
   logger:update_process_metadata(#{domain => [emp, client]}),
   process_flag(trap_exit, true),
@@ -67,6 +71,14 @@ handle_call({send_message, Message}, _From, State) ->
   case maps:find(connection_pid, State) of
     {ok, Pid} ->
       {reply, emp_connection:send_message(Pid, Message), State};
+    error ->
+      {reply, {error, connection_unavailable}, State}
+  end;
+
+handle_call({send_request, Data}, _From, State) ->
+  case maps:find(connection_pid, State) of
+    {ok, Pid} ->
+      {reply, emp_connection:send_request(Pid, Data), State};
     error ->
       {reply, {error, connection_unavailable}, State}
   end;

@@ -15,9 +15,9 @@
 -module(emp).
 
 -export([default_port/0,
-         send_message/2, send_data/2]).
+         send_message/2, send_data/2, send_request/2]).
 
--export_type([gen_server_name/0, gen_server_ref/0,
+-export_type([gen_server_name/0, gen_server_ref/0, gen_server_call_tag/0,
               client_id/0, server_id/0]).
 
 -type gen_server_name() :: {local, term()}
@@ -29,6 +29,8 @@
                         | {global, term()}
                         | {via, atom(), term()}
                         | pid().
+
+-type gen_server_call_tag() :: {pid(), term()}.
 
 -type client_id() :: atom().
 -type server_id() :: atom().
@@ -50,3 +52,10 @@ send_message({connection, Pid}, Message) ->
 -spec send_data(sender(), iodata()) -> ok | {error, term()}.
 send_data(Sender, Data) ->
   send_message(Sender, emp_proto:data_message(Data)).
+
+-spec send_request(sender(), iodata()) -> {ok, iodata()} | {error, term()}.
+send_request({client, ClientId}, Data) ->
+  ClientRef = emp_client:process_name(ClientId),
+  emp_client:send_request(ClientRef, Data);
+send_request({connection, Pid}, Data) ->
+  emp_connection:send_request(Pid, Data).

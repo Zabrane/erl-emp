@@ -171,6 +171,13 @@ Fields have the following meaning:
 - Data: application data.
 
 # Communication flow
+## Connection
+A client can connect to a server at any time. If a connection dies, the client
+can try to reconnect; implementations should implement a backoff mechanism to
+avoid overloading the network and the server.
+
+After a connection has been established, peers start the handshake procedure.
+
 ## Handshake
 When the connection has been established, each peer starts the handshake
 procedure:
@@ -220,12 +227,18 @@ is not defined by the EMP protocol; applications are free to represent data as
 they see fit.
 
 ## Requests and responses
-Peers can send `request` messages at any moment.
+Peers can send `request` messages at any moment. Peers can implement
+pipelining, i.e. sending new requests without waiting for the response to any
+previously sent request. Implementations are free to restrict pipelining
+partially or entirely.
 
-Each request is identified by a unique 64 bit integer. An implementation must
-ensure it never send two requests with the same identifier. Implementations
-should keep a 64 bit counter starting at zero and increment it after sending
-each request.
+Requests must be processed in order: peers must not process a request unless
+the response to the previous request has been sent.
+
+Each request is identified by a unique 64 bit integer. The zero identifier
+must never be used. An implementation must ensure it never send two requests
+with the same identifier. Implementations should keep a 64 bit counter
+starting at zero and increment it after sending each request.
 
 After receiving a request and processing it, an implementation must send a
 `response` message with the same request identifier. Receiving a response with

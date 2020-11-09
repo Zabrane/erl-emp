@@ -60,7 +60,7 @@
                     | protocol_error
                     | invalid_request_id.
 
--type request_id() :: 0..18446744073709551615.
+-type request_id() :: 1..18446744073709551615.
 
 -spec version() -> version().
 version() ->
@@ -101,11 +101,11 @@ error_message(Code, Format, Args) ->
 data_message(Body) ->
   #{type => data, body => #{data => Body}}.
 
--spec request_message(request_id(), Body :: iodata()) -> message().
+-spec request_message(request_id(), iodata()) -> message().
 request_message(Id, Body) ->
   #{type => request, body => #{id => Id, data => Body}}.
 
--spec response_message(request_id(), Body :: iodata()) -> message().
+-spec response_message(request_id(), iodata()) -> message().
 response_message(Id, Body) ->
   #{type => response, body => #{id => Id, data => Body}}.
 
