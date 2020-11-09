@@ -292,7 +292,7 @@ Example:
   "code": "unknown_job",
   "description": "unknown job ee20d7b2-0887-48bf-9982-3b9b3730f26d",
   "data": {
-    "job_id": ee20d7b2-0887-48bf-9982-3b9b3730f26d
+    "job_id": "ee20d7b2-0887-48bf-9982-3b9b3730f26d"
   }
 }
 ```
