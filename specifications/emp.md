@@ -128,7 +128,8 @@ The following error codes are currently defined:
 
 ### Data
 The `data` message is used to transfer application data. The content and
-format of the body is defined by the application.
+format of the body is defined in the [Application data](#application-data)
+section.
 
 ### Request
 The `request` message is used to send messages which expect a response.
@@ -148,7 +149,8 @@ The body is encoded as follows:
 Fields have the following meaning:
 
 - Identifier: a 64 bit integer identifying the request.
-- Data: application data.
+- Data: application data; the content and format of this field is defined in
+the [Application data](#application-data) section.
 
 ### Response
 The `response` message is used to reply to requests.
@@ -169,7 +171,8 @@ Fields have the following meaning:
 
 - Identifier: a 64 bit integer identifying the request the response is
   associated with.
-- Data: application data.
+- Data: application data; the content and format of this field is defined in
+the [Application data](#application-data) section.
 
 # Communication flow
 ## Connection
@@ -245,3 +248,51 @@ After receiving a request and processing it, an implementation must send a
 `response` message with the same request identifier. Receiving a response with
 an identifier which does not match any pending request must trigger an error
 with code 2 (invalid request identifier).
+
+# Application data
+This section describes the format used for application data in the current
+version of the specification.
+
+Application data are represented as JSON values. JSON serialization must use
+UTF-8. The resulting byte sequence must not start with byte order mark.
+
+Application data for messages of type `data` and `request` are called
+"operations". Operations are represented as JSON objects with the following
+fields:
+
+- `op`: the operation to execute as a string.
+- `data`: an object containing arbitrary data associated with the operation
+  (optional).
+
+Example:
+```json
+{
+  "op": "cancel_job",
+  "data": {
+    "job_id": "ee20d7b2-0887-48bf-9982-3b9b3730f26d",
+    "reason": "workflow_deleted"
+  }
+}
+```
+
+Application data for messages of type `response` are called "results". Results
+are represented as JSON objects with the following fields:
+
+- `status`: the status of the operation, either `"success"` or `"failure"`.
+- `code`: an error code identifying the cause of the failure as a string.
+- `description`: a description of what caused the failure (mandatory if the
+  status is `"failure"`).
+- `data`: an object containing arbitrary data associated with either the
+  success or the failure of the operation (optional).
+
+Example:
+```json
+{
+  "status": "failure",
+  "code": "unknown_job",
+  "description": "unknown job ee20d7b2-0887-48bf-9982-3b9b3730f26d",
+  "data": {
+    "job_id": ee20d7b2-0887-48bf-9982-3b9b3730f26d
+  }
+}
+```
