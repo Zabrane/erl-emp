@@ -58,7 +58,8 @@
 
 -type error_code() :: internal_error
                     | protocol_error
-                    | invalid_request_id.
+                    | invalid_request_id
+                    | service_unavailable.
 
 -type request_id() :: 1..18446744073709551615.
 
@@ -131,7 +132,8 @@ encode_message_type(response) -> 7.
 -spec encode_error_code(error_code()) -> 0..255.
 encode_error_code(internal_error) -> 0;
 encode_error_code(protocol_error) -> 1;
-encode_error_code(invalid_request_id) -> 2.
+encode_error_code(invalid_request_id) -> 2;
+encode_error_code(service_unavailable) -> 3.
 
 -spec encode_body(message_type(), message_body()) -> iodata().
 encode_body(hello, #{version := Version}) ->
@@ -217,6 +219,7 @@ decode_body(Data, Message = #{type := response}) ->
 decode_error_code(0) -> internal_error;
 decode_error_code(1) -> protocol_error;
 decode_error_code(2) -> invalid_request_id;
+decode_error_code(3) -> service_unavailable;
 decode_error_code(Code) ->
   throw({error, {unknown_error_code, Code}}).
 

@@ -67,20 +67,28 @@ init([Options]) ->
 terminate(_Reason, _State) ->
   ok.
 
-handle_call({send_message, Message}, _From, State) ->
-  case maps:find(connection_pid, State) of
-    {ok, Pid} ->
-      {reply, emp_connection:send_message(Pid, Message), State};
-    error ->
-      {reply, {error, connection_unavailable}, State}
+handle_call({send_message, Data}, _From, State) ->
+  case
+    call_connection(fun (Pid) ->
+                        emp_connection:send_message(Pid, Data)
+                    end, State)
+  of
+    {ok, Result} ->
+      {reply, Result, State};
+    {error, Reason} ->
+      {reply, {error, Reason}, State}
   end;
 
 handle_call({send_request, Data}, _From, State) ->
-  case maps:find(connection_pid, State) of
-    {ok, Pid} ->
-      {reply, emp_connection:send_request(Pid, Data), State};
-    error ->
-      {reply, {error, connection_unavailable}, State}
+  case
+    call_connection(fun (Pid) ->
+                        emp_connection:send_request(Pid, Data)
+                    end, State)
+  of
+    {ok, Result} ->
+      {reply, Result, State};
+    {error, Reason} ->
+      {reply, {error, Reason}, State}
   end;
 
 handle_call(Msg, From, State) ->
@@ -118,6 +126,21 @@ handle_info(Msg, State) ->
 schedule_connection(Backoff) ->
   {ok, _} = timer:send_after(backoff:get(Backoff), self(), connect),
   ok.
+
+-spec call_connection(fun((pid()) -> term()), state()) ->
+        {ok, Reply :: term()} | {error, term()}.
+call_connection(Fun, State) ->
+  try
+    case maps:find(connection_pid, State) of
+      {ok, Pid} ->
+        {ok, Fun(Pid)};
+      error ->
+        {error, connection_unavailable}
+    end
+  catch
+    exit:{Reason, _MFA} ->
+      {error, {connection_failure, Reason}}
+  end.
 
 -spec connect(state()) -> {ok, state()} | {error, term()}.
 connect(State = #{options := Options}) ->

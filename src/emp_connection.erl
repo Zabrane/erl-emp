@@ -21,9 +21,14 @@
 -export([start_link/3, send_message/2, send_request/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--export_type([options/0]).
+-export_type([handler/0, handler_request/0, options/0]).
 
--type options() :: #{ping_interval := pos_integer()}.
+-type handler() :: emp:gen_server_ref().
+-type handler_request() :: {emp_data, iodata()}
+                         | {emp_request, iodata()}.
+
+-type options() :: #{ping_interval => pos_integer(),
+                     handler => handler()}.
 
 -type state() :: #{options := options(),
                    socket => emp_socket:socket(),
@@ -71,7 +76,7 @@ handle_call({send_message, Message}, _From, State) ->
     do_send_message(Message, State),
     {reply, ok, State}
   catch
-    error:Reason ->
+    throw:{error, Reason} ->
       {reply, {error, Reason}, State}
   end;
 
@@ -87,7 +92,7 @@ handle_call({send_request, Data}, From,
                     next_request_id => Id+1},
     {noreply, State2}
   catch
-    error:Reason ->
+    throw:{error, Reason} ->
       {reply, {error, Reason}, State}
   end;
 
@@ -135,11 +140,9 @@ handle_info({Event, _, Data}, State = #{socket := Socket}) when
         {ok, State2} ->
           {noreply, State2};
         {error, Reason} ->
-          ?LOG_ERROR("invalid message: ~p", [Reason]),
-          {stop, {invalid_message, Reason}, State}
+          {stop, Reason, State}
       end;
     {error, Reason} ->
-      ?LOG_ERROR("invalid data: ~p", [Reason]),
       send_error(protocol_error, "invalid data: ~p", [Reason], State),
       {stop, {invalid_data, Reason}, State}
   end;
@@ -181,7 +184,7 @@ do_send_message(Message, #{socket := Socket}) ->
     ok ->
       ok;
     {error, Reason} ->
-      error({send, Reason})
+      throw({error, {send, Reason}})
   end.
 
 -spec send_error(emp_proto:error_code(), binary() | string(), state()) -> ok.
@@ -204,24 +207,31 @@ handle_message(#{type := pong}, State) ->
 handle_message(#{type := error,
                  body := #{code := Code, description := Description}},
                _State) ->
-  ?LOG_WARNING("peer error ~p: ~ts", [Code, Description]),
-  exit(normal);
-handle_message(Message = #{type := data}, State) ->
-  ?LOG_DEBUG("received data message ~p", [Message]), % XXX
-  %% TODO call data message handler
-  {ok, State};
-handle_message(Message = #{type := request,
-                           body := #{id := Id, data := _Data}}, State) ->
-  ?LOG_DEBUG("received request ~p", [Message]), % XXX
-  %% TODO call request message handler
-  ResponseData = <<"TODO">>,
-  Response = emp_proto:response_message(Id, ResponseData),
-  do_send_message(Response, State),
-  {ok, State};
-handle_message(Message = #{type := response,
-                           body := #{id := Id, data := Data}},
+  ?LOG_WARNING("peer error (~p): ~ts", [Code, Description]),
+  {error, normal};
+handle_message(#{type := data,
+                 body := #{data := Data}},
+               State) ->
+  case call_handler({emp_data, Data}, State) of
+    {ok, _} ->
+      {ok, State};
+    {error, Reason} ->
+      {error, Reason}
+  end;
+handle_message(#{type := request,
+                 body := #{id := Id, data := Data}},
+               State) ->
+  case call_handler({emp_request, Data}, State) of
+    {ok, ResponseData} ->
+      Response = emp_proto:response_message(Id, ResponseData),
+      do_send_message(Response, State),
+      {ok, State};
+    {error, Reason} ->
+      {error, Reason}
+  end;
+handle_message(#{type := response,
+                 body := #{id := Id, data := Data}},
                State = #{pending_requests := PendingRequests}) ->
-  ?LOG_DEBUG("received response ~p", [Message]), % XXX
   case queue:out(PendingRequests) of
     {{value, #{id := Id, source := Source}},
      PendingRequests2} ->
@@ -237,3 +247,19 @@ handle_message(Message = #{type := response,
   end;
 handle_message(Message, _State) ->
   error({unexpected_message, Message}).
+
+-spec call_handler(term(), state()) -> {ok, term()} | {error, term()}.
+call_handler(Call, State = #{options := Options}) ->
+  case maps:find(handler, Options) of
+    {ok, Handler} ->
+      try
+        {ok, gen_server:call(Handler, Call, infinity)}
+      catch
+        exit:{noproc, _MFA} ->
+          send_error(service_unavailable, "message handler down", State),
+          {error, normal}
+      end;
+    error ->
+      send_error(service_unavailable, "missing message handler", State),
+      {error, normal}
+  end.

@@ -124,6 +124,7 @@ The following error codes are currently defined:
 | 0    | Internal error. Used for system and network errors.                                                    |
 | 1    | Protocol error. Indicates that an invalid message was received, or that the message flow is incorrect. |
 | 2    | Invalid request identifier.                                                                            |
+| 3    | Service unavailable.                                                                                   |
 
 ### Data
 The `data` message is used to transfer application data. The content and
