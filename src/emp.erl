@@ -15,10 +15,13 @@
 -module(emp).
 
 -export([default_port/0,
-         send_message/2, send_request/2]).
+         send_message/2, send_request/3]).
 
 -export_type([gen_server_name/0, gen_server_ref/0, gen_server_call_tag/0,
-              client_id/0, server_id/0]).
+              client_id/0, server_id/0,
+              sender/0,
+              request_id/0, request/0,
+              op_name/0, op/0, op_table/0]).
 
 -type gen_server_name() :: {local, term()}
                          | {global, term()}
@@ -38,6 +41,18 @@
 -type sender() :: {client, client_id()}
                 | {connection, pid()}.
 
+-type request_id() :: 1..18446744073709551615.
+
+-type request() :: #{id => request_id(),
+                     op := op_name(),
+                     data := json:value()}.
+
+-type op_name() :: atom().
+-type op() :: #{input := jsv:definition(),
+                output => jsv:definition(),
+                error => jsv:definition()}.
+-type op_table() :: #{binary() := op()}.
+
 -spec default_port() -> inet:port_number().
 default_port() ->
   5040.
@@ -49,9 +64,12 @@ send_message({client, ClientId}, Message) ->
 send_message({connection, Pid}, Message) ->
   emp_connection:send_message(Pid, Message).
 
--spec send_request(sender(), iodata()) -> {ok, iodata()} | {error, term()}.
-send_request({client, ClientId}, Data) ->
+-spec send_request(sender(), op_name(), json:value()) ->
+        {ok, iodata()} | {error, term()}.
+send_request({client, ClientId}, Op, Data) ->
+  Request = #{op => Op, data => Data},
   ClientRef = emp_client:process_name(ClientId),
-  emp_client:send_request(ClientRef, Data);
-send_request({connection, Pid}, Data) ->
-  emp_connection:send_request(Pid, Data).
+  emp_client:send_request(ClientRef, Request);
+send_request({connection, Pid}, Op, Data) ->
+  Request = #{op => Op, data => Data},
+  emp_connection:send_request(Pid, Request).

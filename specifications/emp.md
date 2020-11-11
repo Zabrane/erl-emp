@@ -124,7 +124,7 @@ The following error codes are currently defined:
 | 1    | Protocol error. Indicates that an invalid message was received, or that the message flow is incorrect. |
 | 2    | Service unavailable.                                                                                   |
 | 3    | Invalid request identifier.                                                                            |
-| 4    | Invalid request format.                                                                                |
+| 4    | Invalid request.                                                                                       |
 
 ### Request
 The `request` message is used to send messages which expect a response.

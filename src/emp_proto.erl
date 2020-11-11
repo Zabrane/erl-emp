@@ -18,7 +18,7 @@
          hello_message/0, hello_message/1,
          bye_message/0, ping_message/0, pong_message/0,
          error_message/2, error_message/3,
-         request_message/2, response_message/2,
+         request_message/1, response_message/2,
          encode_message/1, decode_message/1,
          encode_string/1, decode_string/1]).
 
@@ -26,8 +26,7 @@
               message_body/0,
               hello_message_body/0, error_message_body/0,
               request_message_body/0, response_message_body/0,
-              version/0, error_code/0,
-              request_id/0]).
+              version/0, error_code/0]).
 
 -type message_type() :: hello | bye | ping | pong | error
                       | request | response.
@@ -45,10 +44,10 @@
 -type error_message_body() :: #{code := error_code(),
                                 description := binary()}.
 
--type request_message_body() :: #{id := request_id(),
+-type request_message_body() :: #{id := emp:request_id(),
                                   data := iodata()}.
 
--type response_message_body() :: #{id := request_id(),
+-type response_message_body() :: #{id := emp:request_id(),
                                    data := iodata()}.
 
 -type version() :: 1..255.
@@ -57,9 +56,7 @@
                     | protocol_error
                     | service_unavailable
                     | invalid_request_id
-                    | invalid_request_format.
-
--type request_id() :: 1..18446744073709551615.
+                    | invalid_request.
 
 -spec version() -> version().
 version() ->
@@ -96,11 +93,13 @@ error_message(Code, Format, Args) ->
   Message = io_lib:format(Format, Args),
   error_message(Code, iolist_to_binary(Message)).
 
--spec request_message(request_id(), iodata()) -> message().
-request_message(Id, Body) ->
-  #{type => request, body => #{id => Id, data => Body}}.
+-spec request_message(emp:request()) -> message().
+request_message(#{id := Id, op := Op, data := Value}) ->
+  Data = json:serialize(#{op => atom_to_binary(Op), data => Value},
+                        #{return_binary => true}),
+  #{type => request, body => #{id => Id, data => Data}}.
 
--spec response_message(request_id(), iodata()) -> message().
+-spec response_message(emp:request_id(), iodata()) -> message().
 response_message(Id, Body) ->
   #{type => response, body => #{id => Id, data => Body}}.
 
@@ -127,7 +126,7 @@ encode_error_code(internal_error) -> 0;
 encode_error_code(protocol_error) -> 1;
 encode_error_code(service_unavailable) -> 2;
 encode_error_code(invalid_request_id) -> 3;
-encode_error_code(invalid_request_format) -> 4.
+encode_error_code(invalid_request) -> 4.
 
 -spec encode_body(message_type(), message_body()) -> iodata().
 encode_body(hello, #{version := Version}) ->
@@ -209,7 +208,7 @@ decode_error_code(0) -> internal_error;
 decode_error_code(1) -> protocol_error;
 decode_error_code(2) -> service_unavailable;
 decode_error_code(3) -> invalid_request_id;
-decode_error_code(4) -> invalid_request_format;
+decode_error_code(4) -> invalid_request;
 decode_error_code(Code) ->
   throw({error, {unknown_error_code, Code}}).
 

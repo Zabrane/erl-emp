@@ -51,9 +51,10 @@ start_link(Name, Options) ->
 send_message(Ref, Message) ->
   gen_server:call(Ref, {send_message, Message}, infinity).
 
--spec send_request(client_ref(), iodata()) -> {ok, iodata()} | {error, term()}.
-send_request(Ref, Data) ->
-  gen_server:call(Ref, {send_request, Data}, infinity).
+-spec send_request(client_ref(), emp:request()) ->
+        {ok, iodata()} | {error, term()}.
+send_request(Ref, Request) ->
+  gen_server:call(Ref, {send_request, Request}, infinity).
 
 init([Options]) ->
   logger:update_process_metadata(#{domain => [emp, client]}),
@@ -79,10 +80,10 @@ handle_call({send_message, Data}, _From, State) ->
       {reply, {error, Reason}, State}
   end;
 
-handle_call({send_request, Data}, _From, State) ->
+handle_call({send_request, Request}, _From, State) ->
   case
     call_connection(fun (Pid) ->
-                        emp_connection:send_request(Pid, Data)
+                        emp_connection:send_request(Pid, Request)
                     end, State)
   of
     {ok, Result} ->

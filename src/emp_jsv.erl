@@ -19,12 +19,9 @@
 
 -spec catalog() -> jsv:catalog().
 catalog() ->
-  #{operation_type =>
-      {string, #{values => [data, request]}},
-    operation =>
-      {object, #{members => #{name => string,
-                              type => {ref, operation_type}},
-                 required => [name, type]}},
+  #{operation =>
+      {object, #{members => #{name => string},
+                 required => [name]}},
     operations =>
       {array, #{element => {ref, operation}}}}.
 
