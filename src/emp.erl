@@ -15,7 +15,7 @@
 -module(emp).
 
 -export([default_port/0,
-         send_message/2, send_data/2, send_request/2]).
+         send_message/2, send_request/2]).
 
 -export_type([gen_server_name/0, gen_server_ref/0, gen_server_call_tag/0,
               client_id/0, server_id/0]).
@@ -48,10 +48,6 @@ send_message({client, ClientId}, Message) ->
   emp_client:send_message(ClientRef, Message);
 send_message({connection, Pid}, Message) ->
   emp_connection:send_message(Pid, Message).
-
--spec send_data(sender(), iodata()) -> ok | {error, term()}.
-send_data(Sender, Data) ->
-  send_message(Sender, emp_proto:data_message(Data)).
 
 -spec send_request(sender(), iodata()) -> {ok, iodata()} | {error, term()}.
 send_request({client, ClientId}, Data) ->

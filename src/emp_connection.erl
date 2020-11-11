@@ -209,15 +209,6 @@ handle_message(#{type := error,
                _State) ->
   ?LOG_WARNING("peer error (~p): ~ts", [Code, Description]),
   {error, normal};
-handle_message(#{type := data,
-                 body := #{data := Data}},
-               State) ->
-  case call_handler({emp_data, Data}, State) of
-    {ok, _} ->
-      {ok, State};
-    {error, Reason} ->
-      {error, Reason}
-  end;
 handle_message(#{type := request,
                  body := #{id := Id, data := Data}},
                State) ->

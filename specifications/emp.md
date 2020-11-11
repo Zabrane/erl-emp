@@ -58,9 +58,8 @@ The following message types are currently defined:
 | 2    | `ping`     |
 | 3    | `pong`     |
 | 4    | `error`    |
-| 5    | `data`     |
-| 6    | `request`  |
-| 7    | `response` |
+| 5    | `request`  |
+| 6    | `response` |
 
 ### Hello
 The `hello` message is sent by a peer after the connection has been
@@ -125,11 +124,6 @@ The following error codes are currently defined:
 | 1    | Protocol error. Indicates that an invalid message was received, or that the message flow is incorrect. |
 | 2    | Invalid request identifier.                                                                            |
 | 3    | Service unavailable.                                                                                   |
-
-### Data
-The `data` message is used to transfer application data. The content and
-format of the body is defined in the [Application data](#application-data)
-section.
 
 ### Request
 The `request` message is used to send messages which expect a response.
@@ -225,11 +219,6 @@ received in this delay, the initiator of the ping-pong procedure should
 consider the connection inactive and close it. In that situation, it may try
 to send an `error` message before closing the connection.
 
-## Data messages
-Peers can send `data` messages at any moment. The format of the `data` message
-is not defined by the EMP protocol; applications are free to represent data as
-they see fit.
-
 ## Requests and responses
 Peers can send `request` messages at any moment. Peers can implement
 pipelining, i.e. sending new requests without waiting for the response to any
@@ -256,9 +245,7 @@ version of the specification.
 Application data are represented as JSON values. JSON serialization must use
 UTF-8. The resulting byte sequence must not start with byte order mark.
 
-Application data for messages of type `data` and `request` are called
-"operations". Operations are represented as JSON objects with the following
-fields:
+Requests are represented as JSON objects with the following fields:
 
 - `op`: the operation to execute as a string.
 - `data`: an object containing arbitrary data associated with the operation
@@ -275,8 +262,7 @@ Example:
 }
 ```
 
-Application data for messages of type `response` are called "results". Results
-are represented as JSON objects with the following fields:
+Responses are represented as JSON objects with the following fields:
 
 - `status`: the status of the operation, either `"success"` or `"failure"`.
 - `code`: an error code identifying the cause of the failure as a string.

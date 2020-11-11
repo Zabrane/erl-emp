@@ -17,27 +17,26 @@
 -export([version/0,
          hello_message/0, hello_message/1,
          bye_message/0, ping_message/0, pong_message/0,
-         error_message/2, error_message/3, data_message/1,
+         error_message/2, error_message/3,
          request_message/2, response_message/2,
          encode_message/1, decode_message/1,
          encode_string/1, decode_string/1]).
 
 -export_type([message_type/0, message/0,
               message_body/0,
-              hello_message_body/0, error_message_body/0, data_message_body/0,
+              hello_message_body/0, error_message_body/0,
               request_message_body/0, response_message_body/0,
               version/0, error_code/0,
               request_id/0]).
 
 -type message_type() :: hello | bye | ping | pong | error
-                      | data | request | response.
+                      | request | response.
 
 -type message() :: #{type := message_type(),
                      body => message_body()}.
 
 -type message_body() :: hello_message_body()
                       | error_message_body()
-                      | data_message_body()
                       | request_message_body()
                       | response_message_body().
 
@@ -45,8 +44,6 @@
 
 -type error_message_body() :: #{code := error_code(),
                                 description := binary()}.
-
--type data_message_body() :: #{data := iodata()}.
 
 -type request_message_body() :: #{id := request_id(),
                                   data := iodata()}.
@@ -98,10 +95,6 @@ error_message(Code, Format, Args) ->
   Message = io_lib:format(Format, Args),
   error_message(Code, iolist_to_binary(Message)).
 
--spec data_message(Body :: iodata()) -> message().
-data_message(Body) ->
-  #{type => data, body => #{data => Body}}.
-
 -spec request_message(request_id(), iodata()) -> message().
 request_message(Id, Body) ->
   #{type => request, body => #{id => Id, data => Body}}.
@@ -125,9 +118,8 @@ encode_message_type(bye) -> 1;
 encode_message_type(ping) -> 2;
 encode_message_type(pong) -> 3;
 encode_message_type(error) -> 4;
-encode_message_type(data) -> 5;
-encode_message_type(request) -> 6;
-encode_message_type(response) -> 7.
+encode_message_type(request) -> 5;
+encode_message_type(response) -> 6.
 
 -spec encode_error_code(error_code()) -> 0..255.
 encode_error_code(internal_error) -> 0;
@@ -140,8 +132,6 @@ encode_body(hello, #{version := Version}) ->
   <<Version:8, 0:24>>;
 encode_body(error, #{code := Code, description := Description}) ->
   [<<(encode_error_code(Code)):8, 0:24>>, encode_string(Description)];
-encode_body(data, #{data := Data}) ->
-  Data;
 encode_body(request, #{id := Id, data := Data}) ->
   [<<Id:64>>, Data];
 encode_body(response, #{id := Id, data := Data}) ->
@@ -169,9 +159,8 @@ decode_message_type(1) -> bye;
 decode_message_type(2) -> ping;
 decode_message_type(3) -> pong;
 decode_message_type(4) -> error;
-decode_message_type(5) -> data;
-decode_message_type(6) -> request;
-decode_message_type(7) -> response;
+decode_message_type(5) -> request;
+decode_message_type(6) -> response;
 decode_message_type(Type) ->
   throw({error, {unknown_message_type, Type}}).
 
@@ -198,8 +187,6 @@ decode_body(Data, Message = #{type := error}) ->
     _ ->
       throw({error, invalid_body})
   end;
-decode_body(Data, Message = #{type := data}) ->
-  Message#{body => #{data => Data}};
 decode_body(Data, Message = #{type := request}) ->
   case Data of
     <<Id:64, Data2/binary>> ->
