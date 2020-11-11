@@ -14,7 +14,7 @@
 
 -module(emp_request).
 
--export([parse/2, definition/0]).
+-export([serialize/1, parse/2, definition/0]).
 
 -export_type([parse_error_reason/0]).
 
@@ -22,12 +22,18 @@
                             | {invalid_value, [jsv:value_error()]}
                             | {invalid_op, binary()}.
 
+-spec serialize(emp:request()) -> iodata().
+serialize(#{op := Op, data := Data}) ->
+  Value = #{op => atom_to_binary(Op),
+            data => Data},
+  json:serialize(Value).
+
 -spec parse(emp_proto:message(), emp:op_table()) ->
         {ok, emp:request()} | {error, parse_error_reason()}.
 parse(#{body := #{id := Id, data := Data}}, Ops) ->
   case json:parse(Data) of
     {ok, Value} ->
-      case validate(Value, definition()) of
+      case emp_jsv:validate(Value, definition()) of
         ok ->
           #{<<"op">> := OpString,
             <<"data">> := DataObject} = Value,
@@ -52,7 +58,7 @@ parse(#{body := #{id := Id, data := Data}}, Ops) ->
 validate_data(OpString, Value, Ops) ->
   case emp_ops:find_op(OpString, Ops) of
     {ok, #{input := InputDefinition}} ->
-      case validate(Value, InputDefinition) of
+      case emp_jsv:validate(Value, InputDefinition) of
         ok ->
           ok;
         {error, Errors} ->
@@ -67,8 +73,3 @@ definition() ->
   {object, #{members => #{op => string,
                           data => object},
              required => [op, data]}}.
-
--spec validate(json:value(), jsv:definition()) ->
-        ok | {error, [jsv:value_error()]}.
-validate(Value, Definition) ->
-  jsv:validate(Value, Definition, #{format_value_errors => true}).

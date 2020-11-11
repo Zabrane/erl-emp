@@ -41,9 +41,10 @@ handle_call({emp_data, Data}, _From, State) ->
   ?LOG_INFO("emp data: ~p", [Data]),
   {reply, ok, State};
 
-handle_call({emp_request, Data}, _From, State) ->
-  ?LOG_INFO("emp request: ~p", [Data]),
-  {reply, <<"todo">>, State};
+handle_call({emp_request, Request = #{data := Data}}, _From, State) ->
+  ?LOG_INFO("emp request: ~p", [Request]),
+  Response = #{status => success, data => Data},
+  {reply, Response, State};
 
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),

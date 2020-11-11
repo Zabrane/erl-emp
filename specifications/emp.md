@@ -123,8 +123,8 @@ The following error codes are currently defined:
 | 0    | Internal error. Used for system and network errors.                                                    |
 | 1    | Protocol error. Indicates that an invalid message was received, or that the message flow is incorrect. |
 | 2    | Service unavailable.                                                                                   |
-| 3    | Invalid request identifier.                                                                            |
-| 4    | Invalid request.                                                                                       |
+| 3    | Invalid request.                                                                                       |
+| 4    | Invalid response.                                                                                      |
 
 ### Request
 The `request` message is used to send messages which expect a response.
@@ -266,7 +266,8 @@ Example:
 Responses are represented as JSON objects with the following fields:
 
 - `status`: the status of the operation, either `"success"` or `"failure"`.
-- `code`: an error code identifying the cause of the failure as a string.
+- `error_code`: a code identifying the cause of the failure as a string
+  (optional).
 - `description`: a description of what caused the failure (mandatory if the
   status is `"failure"`).
 - `data`: an object containing arbitrary data associated with either the

@@ -15,7 +15,8 @@
 -module(emp_jsv).
 
 -export([catalog/0,
-        format_value_errors/1]).
+        format_value_errors/1,
+        validate/2]).
 
 -spec catalog() -> jsv:catalog().
 catalog() ->
@@ -42,3 +43,8 @@ format_value_error(#{pointer := []}) ->
 format_value_error(#{pointer := Pointer}) ->
   io_lib:format("invalid value at \"~ts\"",
                 [json_pointer:serialize(Pointer)]).
+
+-spec validate(json:value(), jsv:definition()) ->
+        ok | {error, [jsv:value_error()]}.
+validate(Value, Definition) ->
+  jsv:validate(Value, Definition, #{format_value_errors => true}).

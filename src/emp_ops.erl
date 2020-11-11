@@ -16,7 +16,10 @@
 
 -export([find_op/2, default_ops/0]).
 
--spec find_op(binary(), emp:op_table()) -> {ok, emp:op()} | error.
+-spec find_op(emp:op_name() | binary(), emp:op_table()) ->
+        {ok, emp:op()} | error.
+find_op(Name, Ops) when is_atom(Name) ->
+  find_op(atom_to_binary(Name), Ops);
 find_op(String, Ops) ->
   maps:find(String, Ops).
 

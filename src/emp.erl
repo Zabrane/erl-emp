@@ -20,7 +20,8 @@
 -export_type([gen_server_name/0, gen_server_ref/0, gen_server_call_tag/0,
               client_id/0, server_id/0,
               sender/0,
-              request_id/0, request/0,
+              request/0, request_id/0,
+              response/0, response_status/0,
               op_name/0, op/0, op_table/0]).
 
 -type gen_server_name() :: {local, term()}
@@ -41,11 +42,18 @@
 -type sender() :: {client, client_id()}
                 | {connection, pid()}.
 
--type request_id() :: 1..18446744073709551615.
-
 -type request() :: #{id => request_id(),
                      op := op_name(),
                      data := json:value()}.
+
+-type request_id() :: 1..18446744073709551615.
+
+-type response() :: #{id => request_id(),
+                      status := response_status(),
+                      error_code => atom() | binary(),
+                      description => binary(),
+                      data => json:value()}.
+-type response_status() :: success | failure.
 
 -type op_name() :: atom().
 -type op() :: #{input := jsv:definition(),
@@ -65,7 +73,7 @@ send_message({connection, Pid}, Message) ->
   emp_connection:send_message(Pid, Message).
 
 -spec send_request(sender(), op_name(), json:value()) ->
-        {ok, iodata()} | {error, term()}.
+        {ok, emp:response()} | {error, term()}.
 send_request({client, ClientId}, Op, Data) ->
   Request = #{op => Op, data => Data},
   ClientRef = emp_client:process_name(ClientId),

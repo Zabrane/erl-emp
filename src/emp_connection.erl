@@ -39,7 +39,7 @@
                    next_request_id := emp:request_id(),
                    ops := emp:op_table()}.
 
--type pending_request() :: #{id := emp:request_id(),
+-type pending_request() :: #{request := emp:request(),
                              source := emp:gen_server_call_tag()}.
 
 -spec start_link(Address, Port, options()) -> Result when
@@ -91,7 +91,7 @@ handle_call({send_request, Request}, From,
     Request2 = Request#{id => Id},
     Message = emp_proto:request_message(Request2),
     do_send_message(Message, State),
-    PendingRequest = #{id => Id, source => From},
+    PendingRequest = #{request => Request2, source => From},
     State2 = State#{pending_requests => queue:in(PendingRequest,
                                                  PendingRequests),
                     next_request_id => Id+1},
@@ -109,7 +109,6 @@ handle_cast({socket, Socket}, State = #{options := Options}) ->
   State2 = State#{socket => Socket},
   case handshake(State2) of
     {ok, State3} ->
-      ?LOG_DEBUG("handshake finished"),
       ok = emp_socket:setopts(Socket, [{active, 1}]),
       PingInterval = maps:get(ping_interval, Options, 10_000),
       {ok, _} = timer:send_interval(PingInterval, self(), send_ping),
@@ -217,7 +216,7 @@ handle_message(#{type := error,
 handle_message(Message = #{type := request}, State) ->
   handle_request_message(Message, State);
 handle_message(Message = #{type := response}, State) ->
-  handle_response(Message, State);
+  handle_response_message(Message, State);
 handle_message(Message, _State) ->
   error({unexpected_message, Message}).
 
@@ -243,30 +242,44 @@ handle_request_message(Message, State = #{ops := Ops}) ->
 -spec handle_request(emp:request(), state()) -> {ok, state()} | {error, term()}.
 handle_request(Request = #{id := Id}, State) ->
   case call_handler({emp_request, Request}, State) of
-    {ok, ResponseData} ->
-      Response = emp_proto:response_message(Id, ResponseData),
-      do_send_message(Response, State),
+    {ok, Response0} ->
+      Response = Response0#{id => Id},
+      ResponseMessage = emp_proto:response_message(Response),
+      do_send_message(ResponseMessage, State),
       {ok, State};
     {error, Reason} ->
       {error, Reason}
   end.
 
--spec handle_response(emp_proto:message(), state()) ->
+-spec handle_response_message(emp_proto:message(), state()) ->
         {ok, state()} | {error, term()}.
-handle_response(#{type := response,
-                  body := #{id := Id, data := Data}},
-                State = #{pending_requests := PendingRequests}) ->
+handle_response_message(Message = #{body := #{id := Id}},
+                        State = #{pending_requests := PendingRequests,
+                                  ops := Ops}) ->
   case queue:out(PendingRequests) of
-    {{value, #{id := Id, source := Source}},
+    {{value, #{request := #{id := Id, op := OpName},
+               source := Source}},
      PendingRequests2} ->
-      gen_server:reply(Source, Data),
       State2 = State#{pending_requests => PendingRequests2},
-      {ok, State2};
+      case emp_response:parse(Message, OpName, Ops) of
+        {ok, Response} ->
+          gen_server:reply(Source, {ok, Response}),
+          State2 = State#{pending_requests => PendingRequests2},
+          {ok, State2};
+        {error, Reason = {invalid_data, Error}} ->
+          ErrorString = io_lib:format("~p", [Error]), % TODO JSON error formatting
+          send_error(invalid_response, ErrorString, State2),
+          {error, {invalid_response, Reason}};
+        {error, Reason = {invalid_value, Errors}} ->
+          ErrorString = emp_jsv:format_value_errors(Errors),
+          send_error(invalid_response, ErrorString, State2),
+          {error, {invalid_response, Reason}}
+      end;
     {{value, _}, _} ->
-      send_error(invalid_request_id, "invalid request id ~b", [Id], State),
+      send_error(invalid_response, "invalid request id ~b", [Id], State),
       {error, {invalid_request_id, Id}};
     {empty, _} ->
-      send_error(invalid_request_id, "invalid request id ~b", [Id], State),
+      send_error(invalid_response, "invalid request id ~b", [Id], State),
       {error, {invalid_request_id, Id}}
   end.
 
