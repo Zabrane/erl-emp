@@ -18,7 +18,8 @@
 
 -behaviour(gen_server).
 
--export([start_link/3, send_message/2, send_request/2]).
+-export([start_link/3, send_message/2, send_request/2,
+         request_definition/0]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([handler/0, handler_request/0, options/0]).
@@ -209,20 +210,52 @@ handle_message(#{type := error,
                _State) ->
   ?LOG_WARNING("peer error (~p): ~ts", [Code, Description]),
   {error, normal};
-handle_message(#{type := request,
-                 body := #{id := Id, data := Data}},
-               State) ->
-  case call_handler({emp_request, Data}, State) of
+handle_message(Message = #{type := request}, State) ->
+  handle_request(Message, State);
+handle_message(Message = #{type := response}, State) ->
+  handle_response(Message, State);
+handle_message(Message, _State) ->
+  error({unexpected_message, Message}).
+
+-spec handle_request(emp_proto:message(), state()) ->
+        {ok, state()} | {error, term()}.
+handle_request(Request = #{body := #{data := Data}}, State) ->
+  case json:parse(Data) of
+    {ok, Value} ->
+      case
+        jsv:validate(Value, request_definition(),
+                     #{format_value_errors => true})
+      of
+        ok ->
+          handle_json_request(Request, Value, State);
+        {error, Errors} ->
+          ErrorString = emp_jsv:format_value_errors(Errors),
+          send_error(invalid_request_format, ErrorString, State),
+          {error, {invalid_request, Errors}}
+      end;
+    {error, Error} ->
+      ErrorString = io_lib:format("~p", [Error]),
+      send_error(invalid_request_format, ErrorString, State),
+      {error, {invalid_request, Error}}
+  end.
+
+-spec handle_json_request(emp_proto:message(), json:value(), state()) ->
+        {ok, state()} | {error, term()}.
+handle_json_request(#{body := #{id := Id}}, Value, State) ->
+  case call_handler({emp_request, Value}, State) of
     {ok, ResponseData} ->
       Response = emp_proto:response_message(Id, ResponseData),
       do_send_message(Response, State),
       {ok, State};
     {error, Reason} ->
       {error, Reason}
-  end;
-handle_message(#{type := response,
-                 body := #{id := Id, data := Data}},
-               State = #{pending_requests := PendingRequests}) ->
+  end.
+
+-spec handle_response(emp_proto:message(), state()) ->
+        {ok, state()} | {error, term()}.
+handle_response(#{type := response,
+                  body := #{id := Id, data := Data}},
+                State = #{pending_requests := PendingRequests}) ->
   case queue:out(PendingRequests) of
     {{value, #{id := Id, source := Source}},
      PendingRequests2} ->
@@ -235,9 +268,7 @@ handle_message(#{type := response,
     {empty, _} ->
       send_error(invalid_request_id, "invalid request id ~b", [Id], State),
       {error, {invalid_request_id, Id}}
-  end;
-handle_message(Message, _State) ->
-  error({unexpected_message, Message}).
+  end.
 
 -spec call_handler(term(), state()) -> {ok, term()} | {error, term()}.
 call_handler(Call, State = #{options := Options}) ->
@@ -254,3 +285,9 @@ call_handler(Call, State = #{options := Options}) ->
       send_error(service_unavailable, "missing message handler", State),
       {error, normal}
   end.
+
+-spec request_definition() -> jsv:definition().
+request_definition() ->
+  {object, #{members => #{op => string,
+                          data => object},
+             required => [op, data]}}.

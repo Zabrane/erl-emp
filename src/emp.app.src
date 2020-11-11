@@ -21,7 +21,9 @@
    [kernel,
     stdlib,
     ssl,
-    backoff]},
+    backoff,
+    json,
+    jsv]},
   {env, []},
   {modules, []},
 

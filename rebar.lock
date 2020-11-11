@@ -1,4 +1,12 @@
 [{<<"backoff">>,
   {git,"https://github.com/ferd/backoff.git",
        {ref,"dfb19a20c37b73af067edc3c335624bdf9517396"}},
+  0},
+ {<<"json">>,
+  {git,"https://github.com/galdor/erl-json.git",
+       {ref,"d87dcca03f17ea18d79badcedc1d9abde842a24d"}},
+  0},
+ {<<"jsv">>,
+  {git,"https://github.com/galdor/erl-jsv.git",
+       {ref,"e054a7c9d47189f29f4cced4171f8be74e5cc6b6"}},
   0}].
