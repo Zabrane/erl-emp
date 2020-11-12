@@ -241,8 +241,8 @@ handle_request_message(Message, State = #{op_table_name := OpTableName}) ->
   end.
 
 -spec handle_request(emp:request(), state()) -> {ok, state()} | {error, term()}.
-handle_request(Request = #{id := Id, op := OpName}, State) ->
-  case call_handler(OpName, {emp_request, Request}, State) of
+handle_request(Request = #{id := Id}, State) ->
+  case execute_request(Request, State) of
     {ok, Response0} ->
       Response = Response0#{id => Id},
       ResponseMessage = emp_proto:response_message(Response),
@@ -251,6 +251,37 @@ handle_request(Request = #{id := Id, op := OpName}, State) ->
     {error, Reason} ->
       {error, Reason}
   end.
+
+-spec execute_request(emp:request(), state()) ->
+        {ok, emp:response()} | {error, term()}.
+execute_request(Request = #{op := OpName}, State) ->
+  case atom_to_binary(OpName) of
+    <<$$, _/binary>> ->
+      execute_internal_request(Request, State);
+    _ ->
+      call_handler(OpName, {emp_request, Request}, State)
+  end.
+
+-spec execute_internal_request(emp:request(), state()) ->
+        {ok, emp:response()} | {error, term()}.
+
+execute_internal_request(#{op := '$echo', data := Data}, _State) ->
+  {ok, emp:success_response(Data)};
+
+execute_internal_request(#{op := '$get_op', data := _Data}, _State) ->
+  %% #{op_name := OpName} = Data,
+  %% TODO
+  {ok, emp:failure_response(unimplemented, "unimplemented")};
+
+execute_internal_request(#{op := '$list_ops', data := _Data}, _State) ->
+  %% #{op_name := OpName} = Data,
+  %% TODO
+  {ok, emp:failure_response(unimplemented, "unimplemented")};
+
+execute_internal_request(#{op := OpName}, _State) ->
+  ?LOG_WARNING("unknown op ~p", [OpName]),
+  Response = emp:failure_response(unknown_op, "unknown op ~p", [OpName]),
+  {ok, Response}.
 
 -spec handle_response_message(emp_proto:message(), state()) ->
         {ok, state()} | {error, term()}.
@@ -287,7 +318,7 @@ handle_response_message(Message = #{body := #{id := Id}},
 -spec call_handler(emp:op_name(), term(), state()) ->
         {ok, term()} | {error, term()}.
 call_handler(OpName, Call, State = #{options := Options}) ->
-  case find_handler(OpName, Options) of
+  case maps:find(handler, Options) of
     {ok, Handler} ->
       try
         {ok, gen_server:call(Handler, Call, infinity)}
@@ -300,14 +331,4 @@ call_handler(OpName, Call, State = #{options := Options}) ->
     error ->
       send_error(service_unavailable, "missing message handler", State),
       {error, normal}
-  end.
-
--spec find_handler(emp:op_name(), options()) ->
-        {ok, emp:gen_server_ref()} | error.
-find_handler(OpName, Options) ->
-  case atom_to_binary(OpName) of
-    <<$$, _/binary>> ->
-      {ok, emp_handler_internal};
-    _ ->
-      maps:find(handler, Options)
   end.
