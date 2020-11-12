@@ -14,14 +14,37 @@
 
 -module(emp_ops).
 
--export([find_op/2, default_ops/0]).
+-export([default_op_table_name/0, install_op_table/2,
+         find_op/2,
+         default_ops/0]).
 
--spec find_op(emp:op_name() | binary(), emp:op_table()) ->
+-export_type([op_table_name/0]).
+
+-type op_table_name() :: atom().
+
+-spec default_op_table_name() -> op_table_name().
+default_op_table_name() ->
+  emp_ops_table.
+
+-spec install_op_table(emp:op_table(), op_table_name()) -> ok.
+install_op_table(Ops, TableName) ->
+  ets:new(TableName, [set,
+                      named_table,
+                      {read_concurrency, true}]),
+  lists:foreach(fun (Pair) ->
+                    ets:insert(TableName, Pair)
+                end, maps:to_list(Ops)),
+  ok.
+
+-spec find_op(emp:op_name() | binary(), emp_ops:op_table_name()) ->
         {ok, emp:op()} | error.
-find_op(Name, Ops) when is_atom(Name) ->
-  find_op(atom_to_binary(Name), Ops);
-find_op(String, Ops) ->
-  maps:find(String, Ops).
+find_op(Name, OpTableName) when is_atom(Name) ->
+  find_op(atom_to_binary(Name), OpTableName);
+find_op(String, OpTableName) ->
+  case ets:lookup(OpTableName, String) of
+    [{_, Op}] -> {ok, Op};
+    [] -> error
+  end.
 
 -spec default_ops() -> emp:op_table().
 default_ops() ->

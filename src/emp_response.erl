@@ -40,9 +40,10 @@ serialize(Response) ->
   Value = maps:fold(F, #{}, Response),
   json:serialize(Value).
 
--spec parse(emp_proto:message(), emp:op_name(), emp:op_table()) ->
+-spec parse(emp_proto:message(), emp_ops:op_table_name(),
+            emp_ops:op_table_name()) ->
         {ok, emp:response()} | {error, parse_error_reason()}.
-parse(#{body := #{data := Data}}, OpName, Ops) ->
+parse(#{body := #{data := Data}}, OpName, OpTableName) ->
   case json:parse(Data) of
     {ok, Value} ->
       case emp_jsv:validate(Value, definition()) of
@@ -50,7 +51,7 @@ parse(#{body := #{data := Data}}, OpName, Ops) ->
           #{<<"status">> := StatusString} = Value,
           Status = binary_to_atom(StatusString),
           DataObject = maps:get(<<"data">>, Value, #{}),
-          case validate_data(OpName, Status, DataObject, Ops) of
+          case validate_data(OpName, Status, DataObject, OpTableName) of
             ok ->
               {ok, parse_value(Value)};
             {error, Reason} ->
@@ -78,10 +79,10 @@ parse_value(Value) ->
   maps:fold(F, #{}, Value).
 
 -spec validate_data(emp:op_name(), emp:response_status(), json:value(),
-                    emp:op_table()) ->
+                    emp_ops:op_table_name()) ->
         ok | {error, parse_error_reason()}.
-validate_data(OpName, Status, Value, Ops) ->
-  {ok, Op} = emp_ops:find_op(OpName, Ops),
+validate_data(OpName, Status, Value, OpTableName) ->
+  {ok, Op} = emp_ops:find_op(OpName, OpTableName),
   DefType = case Status of
               success -> output;
               failure -> error

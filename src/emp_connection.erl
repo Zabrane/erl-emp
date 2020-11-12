@@ -29,7 +29,7 @@
 
 -type options() :: #{ping_interval => pos_integer(),
                      handler => handler(),
-                     ops => emp:op_table()}.
+                     ops_table_name => emp_ops:op_table_name()}.
 
 -type state() :: #{options := options(),
                    socket => emp_socket:socket(),
@@ -37,7 +37,7 @@
                    port := inet:port_number(),
                    pending_requests := queue:queue(pending_request()),
                    next_request_id := emp:request_id(),
-                   ops := emp:op_table()}.
+                   op_table_name => emp_ops:op_table_name()}.
 
 -type pending_request() :: #{request := emp:request(),
                              source := emp:gen_server_call_tag()}.
@@ -60,13 +60,14 @@ send_request(Pid, Request) ->
 -spec init(list()) -> {ok, state()}.
 init([Address, Port, Options]) ->
   logger:update_process_metadata(#{domain => [emp, connection]}),
-  Ops = maps:get(ops, Options, emp_ops:default_ops()),
+  OpTableName = maps:get(op_table_name, Options,
+                         emp_ops:default_op_table_name()),
   State = #{options => Options,
             address => Address,
             port => Port,
             pending_requests => queue:new(),
             next_request_id => 1,
-            ops => Ops},
+            op_table_name => OpTableName},
   {ok, State}.
 
 terminate(_Reason, #{socket := Socket}) ->
@@ -222,8 +223,8 @@ handle_message(Message, _State) ->
 
 -spec handle_request_message(emp_proto:message(), state()) ->
         {ok, state()} | {error, term()}.
-handle_request_message(Message, State = #{ops := Ops}) ->
-  case emp_request:parse(Message, Ops) of
+handle_request_message(Message, State = #{op_table_name := OpTableName}) ->
+  case emp_request:parse(Message, OpTableName) of
     {ok, Request} ->
       handle_request(Request, State);
     {error, Reason = {invalid_data, Error}} ->
@@ -255,13 +256,13 @@ handle_request(Request = #{id := Id, op := OpName}, State) ->
         {ok, state()} | {error, term()}.
 handle_response_message(Message = #{body := #{id := Id}},
                         State = #{pending_requests := PendingRequests,
-                                  ops := Ops}) ->
+                                  op_table_name := OpTableName}) ->
   case queue:out(PendingRequests) of
     {{value, #{request := #{id := Id, op := OpName},
                source := Source}},
      PendingRequests2} ->
       State2 = State#{pending_requests => PendingRequests2},
-      case emp_response:parse(Message, OpName, Ops) of
+      case emp_response:parse(Message, OpName, OpTableName) of
         {ok, Response} ->
           gen_server:reply(Source, {ok, Response}),
           State2 = State#{pending_requests => PendingRequests2},
