@@ -259,7 +259,7 @@ execute_request(Request = #{op := OpName}, State) ->
     <<$$, _/binary>> ->
       execute_internal_request(Request, State);
     _ ->
-      call_handler(OpName, {emp_request, Request}, State)
+      call_handler({emp_request, Request}, State)
   end.
 
 -spec execute_internal_request(emp:request(), state()) ->
@@ -268,19 +268,28 @@ execute_request(Request = #{op := OpName}, State) ->
 execute_internal_request(#{op := '$echo', data := Data}, _State) ->
   {ok, emp:success_response(Data)};
 
-execute_internal_request(#{op := '$get_op', data := _Data}, _State) ->
-  %% #{op_name := OpName} = Data,
-  %% TODO
-  {ok, emp:failure_response(unimplemented, "unimplemented")};
+execute_internal_request(#{op := '$get_op',
+                           data := #{op_name := OpName}},
+                         #{op_table_name := OpTableName}) ->
+  case emp_ops:find_op(OpName, OpTableName) of
+    {ok, Op} ->
+      OpValue = emp_ops:serialize_op(OpName, Op),
+      {ok, emp:success_response(#{op => OpValue})};
+    error ->
+      {ok, emp:failure_response(unknown_op, "unknown op ~p", [OpName])}
+  end;
 
-execute_internal_request(#{op := '$list_ops', data := _Data}, _State) ->
-  %% #{op_name := OpName} = Data,
-  %% TODO
-  {ok, emp:failure_response(unimplemented, "unimplemented")};
+execute_internal_request(#{op := '$list_ops'},
+                         #{op_table_name := OpTableName}) ->
+  Ops = emp_ops:all_ops(OpTableName),
+  OpsValue = maps:fold(fun (OpName, Op, Acc) ->
+                           [emp_ops:serialize_op(OpName, Op) | Acc]
+                       end, [], Ops),
+  {ok, emp:success_response(#{ops => OpsValue})};
 
 execute_internal_request(#{op := OpName}, _State) ->
   ?LOG_WARNING("unknown op ~p", [OpName]),
-  Response = emp:failure_response(unknown_op, "unknown op ~p", [OpName]),
+  Response = emp:failure_response(invalid_op, "invalid op ~p", [OpName]),
   {ok, Response}.
 
 -spec handle_response_message(emp_proto:message(), state()) ->
@@ -315,9 +324,8 @@ handle_response_message(Message = #{body := #{id := Id}},
       {error, {invalid_request_id, Id}}
   end.
 
--spec call_handler(emp:op_name(), term(), state()) ->
-        {ok, term()} | {error, term()}.
-call_handler(OpName, Call, State = #{options := Options}) ->
+-spec call_handler(term(), state()) -> {ok, term()} | {error, term()}.
+call_handler(Call, State = #{options := Options}) ->
   case maps:find(handler, Options) of
     {ok, Handler} ->
       try

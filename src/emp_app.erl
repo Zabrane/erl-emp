@@ -19,6 +19,7 @@
 -export([start/2, stop/1]).
 
 start(_StartType, _Args) ->
+  jsv:install_catalog(emp, emp_jsv:catalog()),
   emp_ops:install_op_table(emp_ops:default_ops(),
                            emp_ops:default_op_table_name()),
   emp_sup:start_link().

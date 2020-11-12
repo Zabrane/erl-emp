@@ -15,7 +15,7 @@
 -module(emp_ops).
 
 -export([default_op_table_name/0, install_op_table/2,
-         find_op/2,
+         find_op/2, all_ops/1, serialize_op/2,
          default_ops/0]).
 
 -export_type([op_table_name/0]).
@@ -45,6 +45,16 @@ find_op(String, OpTableName) ->
     [{_, Op}] -> {ok, Op};
     [] -> error
   end.
+
+-spec all_ops(emp_ops:op_table_name()) ->
+        #{emp:op_name() => emp:op()}.
+all_ops(OpTableName) ->
+  maps:from_list(ets:tab2list(OpTableName)).
+
+-spec serialize_op(emp:op_name(), emp:op()) -> json:value().
+serialize_op(OpName, _Op) ->
+  %% TODO
+  #{name => OpName}.
 
 -spec default_ops() -> emp:op_table().
 default_ops() ->

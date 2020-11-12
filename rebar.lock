@@ -8,5 +8,5 @@
   0},
  {<<"jsv">>,
   {git,"https://github.com/galdor/erl-jsv.git",
-       {ref,"e054a7c9d47189f29f4cced4171f8be74e5cc6b6"}},
+       {ref,"d1c526bac493ec63c28a7fef6fa2fb3ed018679c"}},
   0}].
