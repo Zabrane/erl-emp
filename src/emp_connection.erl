@@ -29,7 +29,7 @@
 
 -type options() :: #{ping_interval => pos_integer(),
                      handler => handler(),
-                     ops_table_name => emp_ops:op_table_name()}.
+                     op_table_name => emp_ops:op_table_name()}.
 
 -type state() :: #{options := options(),
                    socket => emp_socket:socket(),
