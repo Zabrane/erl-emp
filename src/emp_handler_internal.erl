@@ -37,10 +37,9 @@ init([]) ->
 terminate(_Reason, _State) ->
   ok.
 
-handle_call({emp_request, Request = #{data := Data}}, _From, State) ->
-  ?LOG_INFO("emp request: ~p", [Request]),
-  Response = #{status => success, data => Data},
-  {reply, Response, State};
+handle_call({emp_request, Request}, _From, State) ->
+  ?LOG_DEBUG("emp request received: ~p", [Request]),
+  {reply, handle_request(Request), State};
 
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
@@ -53,3 +52,22 @@ handle_cast(Msg, State) ->
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
+
+-spec handle_request(emp:request()) -> emp:response().
+
+handle_request(#{op := '$echo', data := Data}) ->
+  #{status => success,
+    data => Data};
+
+handle_request(#{op := '$get_op', data := _Data}) ->
+  %% #{op_name := OpName} = Data,
+  %% TODO
+  emp:failure_response(unimplemented, "unimplemented");
+
+handle_request(#{op := '$list_ops'}) ->
+  %% TODO
+  emp:failure_response(unimplemented, "unimplemented");
+
+handle_request(#{op := Op}) ->
+  ?LOG_WARNING("unknown op ~p", [Op]),
+  emp:failure_response(unknown_op, "unknown op ~p", [Op]).

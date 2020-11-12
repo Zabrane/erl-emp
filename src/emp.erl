@@ -15,6 +15,8 @@
 -module(emp).
 
 -export([default_port/0,
+         success_response/0, success_response/1,
+         failure_response/2, failure_response/3, failure_response/4,
          send_message/2, send_request/3]).
 
 -export_type([gen_server_name/0, gen_server_ref/0, gen_server_call_tag/0,
@@ -64,6 +66,49 @@
 -spec default_port() -> inet:port_number().
 default_port() ->
   5040.
+
+-spec success_response() -> emp:response().
+success_response() ->
+  #{status => success}.
+
+-spec success_response(json:value()) -> emp:response().
+success_response(Data) ->
+  #{status => success,
+    data => Data}.
+
+-spec failure_response(ErrorCode, Description) -> emp:response() when
+    ErrorCode :: atom(),
+    Description :: string() | binary().
+failure_response(ErrorCode, Description) ->
+  #{status => failure,
+    error_code => ErrorCode,
+    description => unicode:characters_to_binary(Description)}.
+
+-spec failure_response(ErrorCode, io:format() | Description,
+                       [term()] | json:value()) ->
+        emp:response() when
+    ErrorCode :: atom(),
+    Description :: string() | binary().
+failure_response(ErrorCode, Description, Data) when is_map(Data) ->
+  #{status => failure,
+    error_code => ErrorCode,
+    description => unicode:characters_to_binary(Description),
+    data => Data};
+failure_response(ErrorCode, Format, Args) when is_list(Args) ->
+  DescriptionData = io_lib:format(Format, Args),
+  #{status => failure,
+    error_code => ErrorCode,
+    description => iolist_to_binary(DescriptionData)}.
+
+-spec failure_response(ErrorCode, io:format(), [term()], json:value()) ->
+        emp:response() when
+    ErrorCode :: atom().
+failure_response(ErrorCode, Format, Args, Data) ->
+  DescriptionData = io_lib:format(Format, Args),
+  #{status => failure,
+    error_code => ErrorCode,
+    description => iolist_to_binary(DescriptionData),
+    data => Data}.
 
 -spec send_message(sender(), emp_proto:message()) -> ok | {error, term()}.
 send_message({client, ClientId}, Message) ->

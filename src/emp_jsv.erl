@@ -20,11 +20,11 @@
 
 -spec catalog() -> jsv:catalog().
 catalog() ->
-  #{operation =>
+  #{op =>
       {object, #{members => #{name => string},
                  required => [name]}},
-    operations =>
-      {array, #{element => {ref, operation}}}}.
+    ops =>
+      {array, #{element => {ref, op}}}}.
 
 -spec format_value_errors([jsv:value_error()]) -> binary().
 format_value_errors(Errors) ->

@@ -27,4 +27,23 @@ find_op(String, Ops) ->
 default_ops() ->
   #{<<"$echo">> =>
       #{input => object,
-        output => object}}.
+        output => object},
+   <<"$get_op">> =>
+      #{input =>
+          {object, #{members =>
+                       #{op_name => string},
+                     required =>
+                       [op_name]}},
+        output =>
+          {object, #{members =>
+                       #{op => {ref, emp, op}},
+                     required =>
+                       [op]}}},
+   <<"$list_ops">> =>
+      #{input =>
+          object,
+        output =>
+          {object, #{members =>
+                       #{ops => {ref, emp, ops}},
+                     required =>
+                       [ops]}}}}.
