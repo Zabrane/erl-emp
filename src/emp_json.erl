@@ -22,9 +22,9 @@ intern_object_keys(Value) when is_map(Value) ->
               (K, V, Acc) when is_atom(K) ->
                 Acc#{K => V};
               (K, V, Acc) when is_binary(K) ->
-                Acc#{binary_to_atom(K) => V};
+                Acc#{binary_to_atom(K) => intern_object_keys(V)};
               (K, V, Acc) when is_list(K) ->
-                Acc#{list_to_atom(K) => V}
+                Acc#{list_to_atom(K) => intern_object_keys(V)}
             end, #{}, Value);
 intern_object_keys(Value) when is_list(Value) ->
   lists:map(fun intern_object_keys/1, Value);

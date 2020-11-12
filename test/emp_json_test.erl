@@ -25,4 +25,7 @@ intern_object_keys_test_() ->
    ?_assertEqual(#{a => 1, b => <<"c">>},
                  emp_json:intern_object_keys(#{a => 1, <<"b">> => <<"c">>})),
    ?_assertEqual([#{a => 1, b => <<"c">>}],
-                 emp_json:intern_object_keys([#{a => 1, <<"b">> => <<"c">>}]))].
+                 emp_json:intern_object_keys([#{a => 1, <<"b">> => <<"c">>}])),
+   ?_assertEqual([#{a => #{b => <<"c">>}}],
+                 emp_json:intern_object_keys([#{<<"a">> =>
+                                                  #{<<"b">> => <<"c">>}}]))].
