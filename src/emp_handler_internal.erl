@@ -12,7 +12,7 @@
 %% OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 %% PERFORMANCE OF THIS SOFTWARE.
 
--module(emp_handler_example).
+-module(emp_handler_internal).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -26,11 +26,11 @@
 -spec start_link() -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link() ->
-  gen_server:start_link({local, emp_handler_example}, ?MODULE, [], []).
+  gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec init(list()) -> {ok, state()}.
 init([]) ->
-  logger:update_process_metadata(#{domain => [emp, handler, example]}),
+  logger:update_process_metadata(#{domain => [emp, handler, internal]}),
   State = #{},
   {ok, State}.
 

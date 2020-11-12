@@ -12,7 +12,7 @@
 %% OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 %% PERFORMANCE OF THIS SOFTWARE.
 
--module(emp_sup).
+-module(emp_handler_sup).
 
 -behaviour(supervisor).
 
@@ -23,15 +23,8 @@ start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-  Children = [#{id => clients,
-                start => {emp_client_sup, start_link, []},
-                type => supervisor},
-              #{id => servers,
-                start => {emp_server_sup, start_link, []},
-                type => supervisor},
-              #{id => handlers,
-                start => {emp_handler_sup, start_link, []},
-                type => supervisor}],
+  Children = [#{id => internal,
+                start => {emp_handler_internal, start_link, []}}],
   Flags = #{strategy => one_for_one,
             intensity => 1,
             period => 5},

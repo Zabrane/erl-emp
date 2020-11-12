@@ -240,8 +240,8 @@ handle_request_message(Message, State = #{ops := Ops}) ->
   end.
 
 -spec handle_request(emp:request(), state()) -> {ok, state()} | {error, term()}.
-handle_request(Request = #{id := Id}, State) ->
-  case call_handler({emp_request, Request}, State) of
+handle_request(Request = #{id := Id, op := OpName}, State) ->
+  case call_handler(OpName, {emp_request, Request}, State) of
     {ok, Response0} ->
       Response = Response0#{id => Id},
       ResponseMessage = emp_proto:response_message(Response),
@@ -283,18 +283,30 @@ handle_response_message(Message = #{body := #{id := Id}},
       {error, {invalid_request_id, Id}}
   end.
 
--spec call_handler(term(), state()) -> {ok, term()} | {error, term()}.
-call_handler(Call, State = #{options := Options}) ->
-  case maps:find(handler, Options) of
+-spec call_handler(emp:op_name(), term(), state()) ->
+        {ok, term()} | {error, term()}.
+call_handler(OpName, Call, State = #{options := Options}) ->
+  case find_handler(OpName, Options) of
     {ok, Handler} ->
       try
         {ok, gen_server:call(Handler, Call, infinity)}
       catch
         exit:{noproc, _MFA} ->
-          send_error(service_unavailable, "message handler down", State),
+          send_error(service_unavailable, "message handler (~p) down",
+                     [Handler], State),
           {error, normal}
       end;
     error ->
       send_error(service_unavailable, "missing message handler", State),
       {error, normal}
+  end.
+
+-spec find_handler(emp:op_name(), options()) ->
+        {ok, emp:gen_server_ref()} | error.
+find_handler(OpName, Options) ->
+  case atom_to_binary(OpName) of
+    <<$$, _/binary>> ->
+      {ok, emp_handler_internal};
+    _ ->
+      maps:find(handler, Options)
   end.
