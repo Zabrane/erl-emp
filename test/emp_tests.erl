@@ -45,7 +45,7 @@ internal_ops_test_get_op() ->
 
 internal_ops_test_list_ops() ->
   ?assertMatch({ok, #{<<"ops">> := _}},
-               send_test_request(<<"$list_ops">>, #{})).
+               send_test_request(<<"$list_ops">>)).
 
 -spec start_test_server(emp_server:options()) -> ok.
 start_test_server(Options) ->
@@ -56,6 +56,11 @@ start_test_server(Options) ->
 start_test_client(Options) ->
   Name = emp_client:process_name(test),
   emp_client:start_link({local, Name}, Options).
+
+-spec send_test_request(emp:op_name()) ->
+        {ok, emp:response()} | {error, term()}.
+send_test_request(OpName) ->
+  emp:send_request({client, test}, OpName).
 
 -spec send_test_request(emp:op_name(), json:value()) ->
         {ok, emp:response()} | {error, term()}.
