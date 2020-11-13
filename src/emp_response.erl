@@ -26,8 +26,7 @@ validate(#{type := response, body := Response}, OpName, OpTableName) ->
   #{status := Status, data := Data} = Response,
   case validate_data(OpName, Status, Data, OpTableName) of
     ok ->
-      Data2 = emp_json:intern_object_keys(Data),
-      {ok, Response#{data => Data2}};
+      {ok, Response};
     {error, Reason} ->
       {error, Reason}
   end.
