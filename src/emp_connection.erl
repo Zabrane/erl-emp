@@ -53,7 +53,8 @@ start_link(Address, Port, Options) ->
 send_message(Pid, Message) ->
   gen_server:call(Pid, {send_message, Message}, infinity).
 
--spec send_request(pid(), emp:request()) -> {ok, iodata()} | {error, term()}.
+-spec send_request(pid(), emp:request()) ->
+        {ok, emp:response()} | {error, term()}.
 send_request(Pid, Request) ->
   gen_server:call(Pid, {send_request, Request}, infinity).
 

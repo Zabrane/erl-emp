@@ -52,7 +52,7 @@ send_message(Ref, Message) ->
   gen_server:call(Ref, {send_message, Message}, infinity).
 
 -spec send_request(client_ref(), emp:request()) ->
-        {ok, iodata()} | {error, term()}.
+        {ok, emp:response()} | {error, term()}.
 send_request(Ref, Request) ->
   gen_server:call(Ref, {send_request, Request}, infinity).
 

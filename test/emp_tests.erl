@@ -34,17 +34,17 @@ internal_ops_test_() ->
      fun internal_ops_test_list_ops/0]}}.
 
 internal_ops_test_echo() ->
-  ?assertMatch({ok, #{data := #{<<"a">> := 1}}},
+  ?assertMatch({ok, #{<<"a">> := 1}},
                send_test_request(<<"$echo">>, #{<<"a">> => 1})).
 
 internal_ops_test_get_op() ->
-  ?assertMatch({ok, #{data := #{<<"op">> := #{<<"name">> := <<"$echo">>}}}},
+  ?assertMatch({ok, #{<<"op">> := #{<<"name">> := <<"$echo">>}}},
                send_test_request(<<"$get_op">>, #{op_name => <<"$echo">>})),
-  ?assertMatch({ok, #{status := failure, description := _}},
+  ?assertMatch({error, {request_failure, _, #{}}},
                send_test_request(<<"$get_op">>, #{op_name => <<"foobar">>})).
 
 internal_ops_test_list_ops() ->
-  ?assertMatch({ok, #{data := #{<<"ops">> := _}}},
+  ?assertMatch({ok, #{<<"ops">> := _}},
                send_test_request(<<"$list_ops">>, #{})).
 
 -spec start_test_server(emp_server:options()) -> ok.

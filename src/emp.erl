@@ -24,6 +24,7 @@
               sender/0,
               request/0, request_id/0,
               response/0, response_status/0,
+              request_result/0,
               op_name/0, op/0, op_table/0]).
 
 -type gen_server_name() :: {local, term()}
@@ -55,6 +56,11 @@
                       description => binary(),
                       data => json:value()}.
 -type response_status() :: success | failure.
+
+-type request_result() :: {ok, json:value()}
+                        | {error, {request_failure,
+                                   Description :: binary(),
+                                   json:value()}}.
 
 -type op_name() :: binary().
 -type op() :: #{input := jsv:definition(),
@@ -107,12 +113,21 @@ send_message({client, ClientId}, Message) ->
 send_message({connection, Pid}, Message) ->
   emp_connection:send_message(Pid, Message).
 
--spec send_request(sender(), op_name(), json:value()) ->
-        {ok, emp:response()} | {error, term()}.
-send_request({client, ClientId}, Op, Data) ->
+-spec send_request(sender(), op_name(), json:value()) -> request_result().
+send_request(Sender, Op, Data) ->
   Request = #{op => Op, data => Data},
-  ClientRef = emp_client:process_name(ClientId),
-  emp_client:send_request(ClientRef, Request);
-send_request({connection, Pid}, Op, Data) ->
-  Request = #{op => Op, data => Data},
-  emp_connection:send_request(Pid, Request).
+  Result = case Sender of
+             {client, ClientId} ->
+               ClientRef = emp_client:process_name(ClientId),
+               emp_client:send_request(ClientRef, Request);
+             {connection, Pid} ->
+               emp_connection:send_request(Pid, Request)
+           end,
+  case Result of
+    {ok, #{status := success, data := ResData}} ->
+      {ok, ResData};
+    {ok, #{status := failure, description := Description, data := ResData}} ->
+      {error, {request_failure, Description, ResData}};
+    {error, Reason} ->
+      {error, Reason}
+  end.
