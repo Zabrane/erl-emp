@@ -49,6 +49,8 @@
                                   data := json:value()}.
 
 -type response_message_body() :: #{id := emp:request_id(),
+                                   status := emp:response_status(),
+                                   description => binary(),
                                    data := iodata()}.
 
 -type version() :: 1..255.
@@ -95,18 +97,28 @@ error_message(Code, Format, Args) ->
   error_message(Code, iolist_to_binary(Message)).
 
 -spec request_message(emp:request()) -> message().
-request_message(#{id := Id, op := OpName, data := Data}) ->
+request_message(Request = #{id := Id, op := OpName}) ->
+  Data = maps:get(data, Request, #{}),
   #{type => request,
     body => #{id => Id,
               op => OpName,
               data => Data}}.
 
 -spec response_message(emp:response()) -> message().
-response_message(Response = #{id := Id}) ->
-  Data = emp_response:serialize(Response),
+response_message(Response = #{id := Id, status := success}) ->
+  Data = maps:get(data, Response, #{}),
   #{type => response,
     body => #{id => Id,
-              data => iolist_to_binary(Data)}}.
+              status => success,
+              data => Data}};
+response_message(Response = #{id := Id, status := failure,
+                              description := Description}) ->
+  Data = maps:get(data, Response, #{}),
+  #{type => response,
+    body => #{id => Id,
+              status => failure,
+              description => Description,
+              data => Data}}.
 
 -spec encode_message(message()) -> iodata().
 encode_message(Message = #{type := Type}) ->
@@ -141,8 +153,15 @@ encode_body(error, #{code := Code, description := Description}) ->
 encode_body(request, #{id := Id, op := OpName, data := Data}) ->
   Data2 = json:serialize(Data, #{return_binary => true}),
   [<<Id:64>>, encode_string(OpName), encode_string(Data2)];
-encode_body(response, #{id := Id, data := Data}) ->
-  [<<Id:64>>, Data].
+encode_body(response, Body = #{id := Id, status := success}) ->
+  Data = maps:get(data, Body, #{}),
+  Data2 = json:serialize(Data, #{return_binary => true}),
+  [<<Id:64, 1:1, 0:31>>, Data2];
+encode_body(response, Body = #{id := Id, status := failure,
+                               description := Description}) ->
+  Data = maps:get(data, Body, #{}),
+  Data2 = json:serialize(Data, #{return_binary => true}),
+  [<<Id:64, 0:1, 0:31>>, encode_string(Description), Data2].
 
 -spec decode_message(binary()) -> {ok, message()} | {error, term()}.
 decode_message(Data) ->
@@ -210,8 +229,26 @@ decode_body(Data, Message = #{type := request}) ->
   end;
 decode_body(Data, Message = #{type := response}) ->
   case Data of
-    <<Id:64, Data2/binary>> ->
-      Message#{body => #{id => Id, data => Data2}};
+    <<Id:64, 1:1, _:31, ResData/binary>> ->
+      case json:parse(ResData) of
+        {ok, Value} ->
+          Message#{body => #{id => Id,
+                             status => success,
+                             data => Value}};
+        {error, Reason} ->
+          throw({error, {invalid_data, Reason}})
+      end;
+    <<Id:64, 0:1, _:31, Data2/binary>> ->
+      {Description, ResData} = decode_string(Data2),
+      case json:parse(ResData) of
+        {ok, Value} ->
+          Message#{body => #{id => Id,
+                             status => failure,
+                             description => Description,
+                             data => Value}};
+        {error, Reason} ->
+          throw({error, {invalid_data, Reason}})
+      end;
     _ ->
       throw({error, invalid_body})
   end.

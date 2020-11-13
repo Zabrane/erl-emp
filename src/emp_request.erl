@@ -14,7 +14,7 @@
 
 -module(emp_request).
 
--export([parse/2, definition/0]).
+-export([parse/2]).
 
 -export_type([parse_error_reason/0]).
 
@@ -23,7 +23,8 @@
 
 -spec parse(emp_proto:message(), emp_ops:op_table_name()) ->
         {ok, emp:request()} | {error, parse_error_reason()}.
-parse(#{body := #{id := Id, op := OpName, data := Data}}, OpTableName) ->
+parse(#{type := request,
+        body := #{id := Id, op := OpName, data := Data}}, OpTableName) ->
   case validate_data(OpName, Data, OpTableName) of
     ok ->
       Request = #{id => Id,
@@ -48,9 +49,3 @@ validate_data(OpName, Value, OpTableName) ->
     error ->
       {error, {invalid_op, OpName}}
   end.
-
--spec definition() -> jsv:definition().
-definition() ->
-  {object, #{members => #{op => string,
-                          data => object},
-             required => [op, data]}}.

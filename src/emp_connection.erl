@@ -269,7 +269,7 @@ execute_internal_request(#{op := <<"$get_op">>,
       OpValue = emp_ops:serialize_op(OpName, Op),
       {ok, emp:success_response(#{op => OpValue})};
     error ->
-      {ok, emp:failure_response(unknown_op, "unknown op ~p", [OpName])}
+      {ok, emp:failure_response("unknown op ~p", [OpName])}
   end;
 
 execute_internal_request(#{op := <<"$list_ops">>},
@@ -282,7 +282,7 @@ execute_internal_request(#{op := <<"$list_ops">>},
 
 execute_internal_request(#{op := OpName}, _State) ->
   ?LOG_WARNING("unknown op ~p", [OpName]),
-  Response = emp:failure_response(invalid_op, "invalid op ~p", [OpName]),
+  Response = emp:failure_response("invalid op ~p", [OpName]),
   {ok, Response}.
 
 -spec handle_response_message(emp_proto:message(), state()) ->
@@ -300,10 +300,6 @@ handle_response_message(Message = #{body := #{id := Id}},
           gen_server:reply(Source, {ok, Response}),
           State2 = State#{pending_requests => PendingRequests2},
           {ok, State2};
-        {error, Reason = {invalid_data, Error}} ->
-          ErrorString = io_lib:format("~p", [Error]), % TODO JSON error formatting
-          send_error(invalid_response, ErrorString, State2),
-          {error, {invalid_response, Reason}};
         {error, Reason = {invalid_value, Errors}} ->
           ErrorString = emp_jsv:format_value_errors(Errors),
           send_error(invalid_response, ErrorString, State2),

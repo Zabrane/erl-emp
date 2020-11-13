@@ -140,7 +140,7 @@ The body is encoded as follows:
     |                             Op                                |
     |                             ...                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                             Data                              |
+    |                            Data                               |
     |                             ...                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
@@ -154,7 +154,8 @@ Fields have the following meaning:
 ### Response
 The `response` message is used to reply to requests.
 
-The body is encoded as follows:
+A response is either a success or a failure. If it is a success, the body is
+encoded as follows:
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -162,16 +163,37 @@ The body is encoded as follows:
     |                         Identifier                            |
     |                                                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                           Data                                |
-    |                            ...                                |
+    |1|                         Unused                              |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                            Data                               |
+    |                             ...                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+If it is a failure, the body is encoded as follows:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                         Identifier                            |
+    |                                                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |0|                         Unused                              |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                         Description                           |
+    |                             ...                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                            Data                               |
+    |                             ...                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Fields have the following meaning:
 
 - Identifier: a 64 bit integer identifying the request the response is
   associated with.
-- Data: application data; the content and format of this field is defined in
-the [Application data](#application-data) section.
+- Description: if the message is a failure, a character string describing the
+  error.
+- Data: a character string containing a serialized JSON object; the object is
+  the set of data associated either with the success or the failure.
 
 # Communication flow
 ## Connection
@@ -242,49 +264,3 @@ After receiving a request and processing it, an implementation must send a
 `response` message with the same request identifier. Receiving a response with
 an identifier which does not match any pending request must trigger an error
 with code 2 (invalid request identifier).
-
-# Application data
-This section describes the format used for application data in the current
-version of the specification.
-
-Application data are represented as JSON values. JSON serialization must use
-UTF-8. The resulting byte sequence must not start with byte order mark.
-
-Requests are represented as JSON objects with the following fields:
-
-- `op`: the operation to execute as a string.
-- `data`: an object containing arbitrary data associated with the operation
-  (optional).
-
-Example:
-```json
-{
-  "op": "cancel_job",
-  "data": {
-    "job_id": "ee20d7b2-0887-48bf-9982-3b9b3730f26d",
-    "reason": "workflow_deleted"
-  }
-}
-```
-
-Responses are represented as JSON objects with the following fields:
-
-- `status`: the status of the operation, either `"success"` or `"failure"`.
-- `error_code`: a code identifying the cause of the failure as a string
-  (optional).
-- `description`: a description of what caused the failure (mandatory if the
-  status is `"failure"`).
-- `data`: an object containing arbitrary data associated with either the
-  success or the failure of the operation (optional).
-
-Example:
-```json
-{
-  "status": "failure",
-  "code": "unknown_job",
-  "description": "unknown job ee20d7b2-0887-48bf-9982-3b9b3730f26d",
-  "data": {
-    "job_id": "ee20d7b2-0887-48bf-9982-3b9b3730f26d"
-  }
-}
-```

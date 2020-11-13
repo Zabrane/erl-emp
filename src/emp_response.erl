@@ -14,69 +14,33 @@
 
 -module(emp_response).
 
--export([serialize/1, parse/3, definition/0]).
+-export([parse/3]).
 
 -export_type([parse_error_reason/0]).
 
--type parse_error_reason() :: {invalid_data, json:error()}
-                            | {invalid_value, [jsv:value_error()]}.
+-type parse_error_reason() :: {invalid_value, [jsv:value_error()]}.
 
--spec serialize(emp:response()) -> iodata().
-serialize(Response) ->
-  F = fun
-        (status, V, Acc) ->
-          Acc#{status => atom_to_binary(V)};
-        (error_code, V, Acc) when is_atom(V) ->
-          Acc#{error_code => atom_to_binary(V)};
-        (error_code, V, Acc) when is_binary(V) ->
-          Acc#{error_code => V};
-        (description, V, Acc) ->
-          Acc#{description => V};
-        (data, V, Acc) ->
-          Acc#{data => V};
-        (_, _, Acc) ->
-          Acc
-      end,
-  Value = maps:fold(F, #{}, Response),
-  json:serialize(Value).
-
--spec parse(emp_proto:message(), emp_ops:op_table_name(),
-            emp_ops:op_table_name()) ->
+-spec parse(emp_proto:message(), emp:op_name(), emp_ops:op_table_name()) ->
         {ok, emp:response()} | {error, parse_error_reason()}.
-parse(#{body := #{data := Data}}, OpName, OpTableName) ->
-  case json:parse(Data) of
-    {ok, Value} ->
-      case emp_jsv:validate(Value, definition()) of
-        ok ->
-          #{<<"status">> := StatusString} = Value,
-          Status = binary_to_atom(StatusString),
-          DataObject = maps:get(<<"data">>, Value, #{}),
-          case validate_data(OpName, Status, DataObject, OpTableName) of
-            ok ->
-              {ok, parse_value(Value)};
-            {error, Reason} ->
-              {error, Reason}
-          end;
-        {error, Errors} ->
-          {error, {invalid_value, Errors}}
-      end;
-    {error, Error} ->
-      {error, {invalid_data, Error}}
+parse(#{type := response, body := Body}, OpName, OpTableName) ->
+  #{id := Id, status := Status, data := Data} = Body,
+  case validate_data(OpName, Status, Data, OpTableName) of
+    ok ->
+      Response = case Status of
+                   success ->
+                     #{id => Id,
+                       status => success,
+                       data => Data};
+                   failure ->
+                     #{id => Id,
+                       status => failure,
+                       description => maps:get(description, Body),
+                       data => Data}
+                 end,
+      {ok, Response};
+    {error, Reason} ->
+      {error, Reason}
   end.
-
--spec parse_value(json:value()) -> emp:response().
-parse_value(Value) ->
-  F = fun
-        (<<"status">>, V, Acc) ->
-          Acc#{status => binary_to_atom(V)};
-        (<<"error_code">>, V, Acc) ->
-          Acc#{error_code => binary_to_atom(V)};
-        (<<"data">>, V, Acc) ->
-          Acc#{data => emp_json:intern_object_keys(V)};
-        (<<"description">>, V, Acc) ->
-          Acc#{description => V}
-      end,
-  maps:fold(F, #{}, Value).
 
 -spec validate_data(emp:op_name(), emp:response_status(), json:value(),
                     emp_ops:op_table_name()) ->
@@ -94,11 +58,3 @@ validate_data(OpName, Status, Value, OpTableName) ->
     {error, Errors} ->
       {error, {invalid_value, Errors}}
   end.
-
--spec definition() -> jsv:definition().
-definition() ->
-  {object, #{members => #{status => {string, #{values => [success, failure]}},
-                          error_code => string,
-                          description => string,
-                          data => object},
-             required => [status]}}.
