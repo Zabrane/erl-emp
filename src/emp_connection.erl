@@ -261,9 +261,9 @@ execute_request(Request, State) ->
 execute_internal_request(#{op := <<"$echo">>, data := Data}, _State) ->
   {ok, emp:success_response(Data)};
 
-execute_internal_request(#{op := <<"$get_op">>,
-                           data := #{op_name := OpName}},
+execute_internal_request(#{op := <<"$get_op">>, data := Data},
                          #{op_table_name := OpTableName}) ->
+  OpName = maps:get(<<"op_name">>, Data),
   case emp_ops:find_op(OpName, OpTableName) of
     {ok, Op} ->
       OpValue = emp_ops:serialize_op(OpName, Op),
@@ -281,8 +281,8 @@ execute_internal_request(#{op := <<"$list_ops">>},
   {ok, emp:success_response(#{ops => OpsValue})};
 
 execute_internal_request(#{op := OpName}, _State) ->
-  ?LOG_WARNING("unknown op ~p", [OpName]),
-  Response = emp:failure_response("invalid op ~p", [OpName]),
+  ?LOG_WARNING("invalid op ~ts", [OpName]),
+  Response = emp:failure_response("invalid op ~ts", [OpName]),
   {ok, Response}.
 
 -spec handle_response_message(emp_proto:message(), state()) ->
