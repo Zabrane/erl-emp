@@ -36,12 +36,10 @@ install_op_table(Ops, TableName) ->
                 end, maps:to_list(Ops)),
   ok.
 
--spec find_op(emp:op_name() | binary(), emp_ops:op_table_name()) ->
+-spec find_op(emp:op_name(), emp_ops:op_table_name()) ->
         {ok, emp:op()} | error.
-find_op(Name, OpTableName) when is_atom(Name) ->
-  find_op(atom_to_binary(Name), OpTableName);
-find_op(String, OpTableName) ->
-  case ets:lookup(OpTableName, String) of
+find_op(Name, OpTableName) ->
+  case ets:lookup(OpTableName, Name) of
     [{_, Op}] -> {ok, Op};
     [] -> error
   end.

@@ -24,8 +24,7 @@
 
 -spec serialize(emp:request()) -> iodata().
 serialize(#{op := Op, data := Data}) ->
-  Value = #{op => atom_to_binary(Op),
-            data => Data},
+  Value = #{op => Op, data => Data},
   json:serialize(Value).
 
 -spec parse(emp_proto:message(), emp_ops:op_table_name()) ->
@@ -35,12 +34,12 @@ parse(#{body := #{id := Id, data := Data}}, OpTableName) ->
     {ok, Value} ->
       case emp_jsv:validate(Value, definition()) of
         ok ->
-          #{<<"op">> := OpString,
+          #{<<"op">> := OpName,
             <<"data">> := DataObject} = Value,
-          case validate_data(OpString, DataObject, OpTableName) of
+          case validate_data(OpName, DataObject, OpTableName) of
             ok ->
               Request = #{id => Id,
-                          op => binary_to_atom(OpString),
+                          op => OpName,
                           data => emp_json:intern_object_keys(DataObject)},
               {ok, Request};
             {error, Reason} ->
@@ -53,11 +52,10 @@ parse(#{body := #{id := Id, data := Data}}, OpTableName) ->
       {error, {invalid_data, Error}}
   end.
 
--spec validate_data(OpString :: binary(), json:value(),
-                    emp_ops:op_table_name()) ->
+-spec validate_data(emp:op_name(), json:value(), emp_ops:op_table_name()) ->
         ok | {error, parse_error_reason()}.
-validate_data(OpString, Value, OpTableName) ->
-  case emp_ops:find_op(OpString, OpTableName) of
+validate_data(OpName, Value, OpTableName) ->
+  case emp_ops:find_op(OpName, OpTableName) of
     {ok, #{input := InputDefinition}} ->
       case emp_jsv:validate(Value, InputDefinition) of
         ok ->
@@ -66,7 +64,7 @@ validate_data(OpString, Value, OpTableName) ->
           {error, {invalid_value, Errors}}
       end;
     error ->
-      {error, {invalid_op, OpString}}
+      {error, {invalid_op, OpName}}
   end.
 
 -spec definition() -> jsv:definition().

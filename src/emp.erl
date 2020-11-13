@@ -57,11 +57,11 @@
                       data => json:value()}.
 -type response_status() :: success | failure.
 
--type op_name() :: atom().
+-type op_name() :: binary().
 -type op() :: #{input := jsv:definition(),
                 output => jsv:definition(),
                 error => jsv:definition()}.
--type op_table() :: #{binary() := op()}.
+-type op_table() :: #{op_name() := op()}.
 
 -spec default_port() -> inet:port_number().
 default_port() ->

@@ -45,7 +45,7 @@ encode_decode_message_test_() ->
               emp_proto:error_message(invalid_request, "test"),
               emp_proto:error_message(invalid_response, "test"),
               emp_proto:request_message(#{id => 42,
-                                          op => foo,
+                                          op => <<"foo">>,
                                           data => #{}}),
               emp_proto:response_message(#{id => 42,
                                            status => success}),

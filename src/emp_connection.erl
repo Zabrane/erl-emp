@@ -254,21 +254,18 @@ handle_request(Request = #{id := Id}, State) ->
 
 -spec execute_request(emp:request(), state()) ->
         {ok, emp:response()} | {error, term()}.
-execute_request(Request = #{op := OpName}, State) ->
-  case atom_to_binary(OpName) of
-    <<$$, _/binary>> ->
-      execute_internal_request(Request, State);
-    _ ->
-      call_handler({emp_request, Request}, State)
-  end.
+execute_request(Request = #{op := <<$$, _/binary>>}, State) ->
+  execute_internal_request(Request, State);
+execute_request(Request, State) ->
+  call_handler({emp_request, Request}, State).
 
 -spec execute_internal_request(emp:request(), state()) ->
         {ok, emp:response()} | {error, term()}.
 
-execute_internal_request(#{op := '$echo', data := Data}, _State) ->
+execute_internal_request(#{op := <<"$echo">>, data := Data}, _State) ->
   {ok, emp:success_response(Data)};
 
-execute_internal_request(#{op := '$get_op',
+execute_internal_request(#{op := <<"$get_op">>,
                            data := #{op_name := OpName}},
                          #{op_table_name := OpTableName}) ->
   case emp_ops:find_op(OpName, OpTableName) of
@@ -279,7 +276,7 @@ execute_internal_request(#{op := '$get_op',
       {ok, emp:failure_response(unknown_op, "unknown op ~p", [OpName])}
   end;
 
-execute_internal_request(#{op := '$list_ops'},
+execute_internal_request(#{op := <<"$list_ops">>},
                          #{op_table_name := OpTableName}) ->
   Ops = emp_ops:all_ops(OpTableName),
   OpsValue = maps:fold(fun (OpName, Op, Acc) ->
