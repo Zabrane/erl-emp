@@ -137,15 +137,19 @@ The body is encoded as follows:
     |                         Identifier                            |
     |                                                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                           Data                                |
-    |                            ...                                |
+    |                             Op                                |
+    |                             ...                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                             Data                              |
+    |                             ...                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Fields have the following meaning:
 
 - Identifier: a 64 bit integer identifying the request.
-- Data: application data; the content and format of this field is defined in
-the [Application data](#application-data) section.
+- Op: a character string identifying the operation to execute.
+- Data: a character string containing a serialized JSON object; the object is
+  the set of input data used by the operation.
 
 ### Response
 The `response` message is used to reply to requests.

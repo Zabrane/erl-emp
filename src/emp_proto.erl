@@ -45,7 +45,8 @@
                                 description := binary()}.
 
 -type request_message_body() :: #{id := emp:request_id(),
-                                  data := iodata()}.
+                                  op := emp:op_name(),
+                                  data := json:value()}.
 
 -type response_message_body() :: #{id := emp:request_id(),
                                    data := iodata()}.
@@ -94,11 +95,11 @@ error_message(Code, Format, Args) ->
   error_message(Code, iolist_to_binary(Message)).
 
 -spec request_message(emp:request()) -> message().
-request_message(Request = #{id := Id}) ->
-  Data = emp_request:serialize(Request),
+request_message(#{id := Id, op := OpName, data := Data}) ->
   #{type => request,
     body => #{id => Id,
-              data => iolist_to_binary(Data)}}.
+              op => OpName,
+              data => Data}}.
 
 -spec response_message(emp:response()) -> message().
 response_message(Response = #{id := Id}) ->
@@ -137,8 +138,9 @@ encode_body(hello, #{version := Version}) ->
   <<Version:8, 0:24>>;
 encode_body(error, #{code := Code, description := Description}) ->
   [<<(encode_error_code(Code)):8, 0:24>>, encode_string(Description)];
-encode_body(request, #{id := Id, data := Data}) ->
-  [<<Id:64>>, Data];
+encode_body(request, #{id := Id, op := OpName, data := Data}) ->
+  Data2 = json:serialize(Data, #{return_binary => true}),
+  [<<Id:64>>, encode_string(OpName), encode_string(Data2)];
 encode_body(response, #{id := Id, data := Data}) ->
   [<<Id:64>>, Data].
 
@@ -186,7 +188,7 @@ decode_body(_, Message = #{type := pong}) ->
 decode_body(Data, Message = #{type := error}) ->
   case Data of
     <<Code:8, _:24, DescriptionData/binary>> ->
-      Description = decode_string(DescriptionData),
+      {Description, _} = decode_string(DescriptionData),
       Message#{body => #{code => decode_error_code(Code),
                          description => Description}};
     _ ->
@@ -195,7 +197,14 @@ decode_body(Data, Message = #{type := error}) ->
 decode_body(Data, Message = #{type := request}) ->
   case Data of
     <<Id:64, Data2/binary>> ->
-      Message#{body => #{id => Id, data => Data2}};
+      {OpName, Data3} = decode_string(Data2),
+      {ReqData, _} = decode_string(Data3),
+      case json:parse(ReqData) of
+        {ok, Value} ->
+          Message#{body => #{id => Id, op => OpName, data => Value}};
+        {error, Reason} ->
+          throw({error, {invalid_data, Reason}})
+      end;
     _ ->
       throw({error, invalid_body})
   end;
@@ -232,11 +241,11 @@ encode_string(String) ->
       error({incomplete_character_data, Datum})
   end.
 
--spec decode_string(binary()) -> binary().
-decode_string(<<Size:16, Data:Size/binary>>) ->
+-spec decode_string(binary()) -> {String :: binary(), Rest :: binary()}.
+decode_string(<<Size:16, Data:Size/binary, Rest/binary>>) ->
   case unicode:characters_to_binary(Data) of
     String when is_binary(String) ->
-      String;
+      {String, Rest};
     {error, Datum, _} ->
       throw({error, {invalid_character_data, Datum}});
     {incomplete, Datum, _} ->

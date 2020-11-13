@@ -14,42 +14,24 @@
 
 -module(emp_request).
 
--export([serialize/1, parse/2, definition/0]).
+-export([parse/2, definition/0]).
 
 -export_type([parse_error_reason/0]).
 
--type parse_error_reason() :: {invalid_data, json:error()}
-                            | {invalid_value, [jsv:value_error()]}
+-type parse_error_reason() :: {invalid_value, [jsv:value_error()]}
                             | {invalid_op, binary()}.
-
--spec serialize(emp:request()) -> iodata().
-serialize(#{op := Op, data := Data}) ->
-  Value = #{op => Op, data => Data},
-  json:serialize(Value).
 
 -spec parse(emp_proto:message(), emp_ops:op_table_name()) ->
         {ok, emp:request()} | {error, parse_error_reason()}.
-parse(#{body := #{id := Id, data := Data}}, OpTableName) ->
-  case json:parse(Data) of
-    {ok, Value} ->
-      case emp_jsv:validate(Value, definition()) of
-        ok ->
-          #{<<"op">> := OpName,
-            <<"data">> := DataObject} = Value,
-          case validate_data(OpName, DataObject, OpTableName) of
-            ok ->
-              Request = #{id => Id,
-                          op => OpName,
-                          data => emp_json:intern_object_keys(DataObject)},
-              {ok, Request};
-            {error, Reason} ->
-              {error, Reason}
-          end;
-        {error, Errors} ->
-          {error, {invalid_value, Errors}}
-      end;
-    {error, Error} ->
-      {error, {invalid_data, Error}}
+parse(#{body := #{id := Id, op := OpName, data := Data}}, OpTableName) ->
+  case validate_data(OpName, Data, OpTableName) of
+    ok ->
+      Request = #{id => Id,
+                  op => OpName,
+                  data => emp_json:intern_object_keys(Data)},
+      {ok, Request};
+    {error, Reason} ->
+      {error, Reason}
   end.
 
 -spec validate_data(emp:op_name(), json:value(), emp_ops:op_table_name()) ->

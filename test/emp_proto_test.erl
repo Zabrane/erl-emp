@@ -26,11 +26,20 @@ encode_string_test_() ->
 
 decode_string_test_() ->
   Decode = fun emp_proto:decode_string/1,
-  [?_assertEqual(<<"">>, Decode(<<0, 0>>)),
-   ?_assertEqual(<<"a">>, Decode(<<0, 1, 97>>)),
-   ?_assertEqual(<<"foo">>, Decode(<<0, 3, 102, 111, 111>>)),
-   ?_assertEqual(<<"été"/utf8>>, Decode(<<0, 5, 195, 169, 116, 195, 169>>)),
-   ?_assertEqual(<<"𝄞"/utf8>>, Decode(<<0, 4, 240, 157, 132, 158>>))].
+  [?_assertEqual({<<"">>, <<>>},
+                 Decode(<<0, 0>>)),
+   ?_assertEqual({<<"a">>, <<>>},
+                 Decode(<<0, 1, 97>>)),
+   ?_assertEqual({<<"foo">>, <<>>},
+                 Decode(<<0, 3, 102, 111, 111>>)),
+   ?_assertEqual({<<"été"/utf8>>, <<>>},
+                 Decode(<<0, 5, 195, 169, 116, 195, 169>>)),
+   ?_assertEqual({<<"𝄞"/utf8>>, <<>>},
+                 Decode(<<0, 4, 240, 157, 132, 158>>)),
+   ?_assertEqual({<<"foo">>, <<1>>},
+                 Decode(<<0, 3, 102, 111, 111, 1>>)),
+   ?_assertEqual({<<"foo">>, <<1, 2, 3>>},
+                 Decode(<<0, 3, 102, 111, 111, 1, 2, 3>>))].
 
 encode_decode_message_test_() ->
   Messages = [emp_proto:hello_message(),
@@ -46,7 +55,7 @@ encode_decode_message_test_() ->
               emp_proto:error_message(invalid_response, "test"),
               emp_proto:request_message(#{id => 42,
                                           op => <<"foo">>,
-                                          data => #{}}),
+                                          data => #{<<"a">> => 1}}),
               emp_proto:response_message(#{id => 42,
                                            status => success}),
               emp_proto:response_message(#{id => 42,

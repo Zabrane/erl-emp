@@ -85,14 +85,14 @@ handle_call({send_message, Message}, _From, State) ->
       {reply, {error, Reason}, State}
   end;
 
-handle_call({send_request, Request}, From,
+handle_call({send_request, Request0}, From,
             State = #{pending_requests := PendingRequests,
                       next_request_id := Id}) ->
   try
-    Request2 = Request#{id => Id},
-    Message = emp_proto:request_message(Request2),
+    Request = Request0#{id => Id},
+    Message = emp_proto:request_message(Request),
     do_send_message(Message, State),
-    PendingRequest = #{request => Request2, source => From},
+    PendingRequest = #{request => Request, source => From},
     State2 = State#{pending_requests => queue:in(PendingRequest,
                                                  PendingRequests),
                     next_request_id => Id+1},
@@ -227,10 +227,6 @@ handle_request_message(Message, State = #{op_table_name := OpTableName}) ->
   case emp_request:parse(Message, OpTableName) of
     {ok, Request} ->
       handle_request(Request, State);
-    {error, Reason = {invalid_data, Error}} ->
-      ErrorString = io_lib:format("~p", [Error]), % TODO JSON error formatting
-      send_error(invalid_request, ErrorString, State),
-      {error, {invalid_request, Reason}};
     {error, Reason = {invalid_value, Errors}} ->
       ErrorString = emp_jsv:format_value_errors(Errors),
       send_error(invalid_request, ErrorString, State),
