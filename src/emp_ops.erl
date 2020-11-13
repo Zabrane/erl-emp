@@ -39,9 +39,14 @@ install_op_table(Ops, TableName) ->
 -spec find_op(emp:op_name(), emp_ops:op_table_name()) ->
         {ok, emp:op()} | error.
 find_op(Name, OpTableName) ->
-  case ets:lookup(OpTableName, Name) of
-    [{_, Op}] -> {ok, Op};
-    [] -> error
+  case ets:whereis(OpTableName) of
+    undefined ->
+      error({missing_op_table, OpTableName});
+    Ref ->
+      case ets:lookup(Ref, Name) of
+        [{_, Op}] -> {ok, Op};
+        [] -> error
+      end
   end.
 
 -spec all_ops(emp_ops:op_table_name()) ->
