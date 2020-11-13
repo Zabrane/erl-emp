@@ -12,7 +12,7 @@
 %% OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 %% PERFORMANCE OF THIS SOFTWARE.
 
--module(emp_proto_test).
+-module(emp_proto_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
