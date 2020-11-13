@@ -224,7 +224,7 @@ handle_message(Message, _State) ->
 -spec handle_request_message(emp_proto:message(), state()) ->
         {ok, state()} | {error, term()}.
 handle_request_message(Message, State = #{op_table_name := OpTableName}) ->
-  case emp_request:parse(Message, OpTableName) of
+  case emp_request:validate(Message, OpTableName) of
     {ok, Request} ->
       handle_request(Request, State);
     {error, Reason = {invalid_value, Errors}} ->
@@ -295,7 +295,7 @@ handle_response_message(Message = #{body := #{id := Id}},
                source := Source}},
      PendingRequests2} ->
       State2 = State#{pending_requests => PendingRequests2},
-      case emp_response:parse(Message, OpName, OpTableName) of
+      case emp_response:validate(Message, OpName, OpTableName) of
         {ok, Response} ->
           gen_server:reply(Source, {ok, Response}),
           State2 = State#{pending_requests => PendingRequests2},

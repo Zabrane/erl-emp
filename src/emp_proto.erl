@@ -44,14 +44,9 @@
 -type error_message_body() :: #{code := error_code(),
                                 description := binary()}.
 
--type request_message_body() :: #{id := emp:request_id(),
-                                  op := emp:op_name(),
-                                  data := json:value()}.
+-type request_message_body() :: emp:request().
 
--type response_message_body() :: #{id := emp:request_id(),
-                                   status := emp:response_status(),
-                                   description => binary(),
-                                   data := iodata()}.
+-type response_message_body() :: emp:response().
 
 -type version() :: 1..255.
 

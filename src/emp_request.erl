@@ -14,29 +14,27 @@
 
 -module(emp_request).
 
--export([parse/2]).
+-export([validate/2]).
 
--export_type([parse_error_reason/0]).
+-export_type([validate_error_reason/0]).
 
--type parse_error_reason() :: {invalid_value, [jsv:value_error()]}
-                            | {invalid_op, binary()}.
+-type validate_error_reason() :: {invalid_value, [jsv:value_error()]}
+                               | {invalid_op, binary()}.
 
--spec parse(emp_proto:message(), emp_ops:op_table_name()) ->
-        {ok, emp:request()} | {error, parse_error_reason()}.
-parse(#{type := request,
-        body := #{id := Id, op := OpName, data := Data}}, OpTableName) ->
+-spec validate(emp_proto:message(), emp_ops:op_table_name()) ->
+        {ok, emp:request()} | {error, validate_error_reason()}.
+validate(#{type := request, body := Request}, OpTableName) ->
+  #{op := OpName, data := Data} = Request,
   case validate_data(OpName, Data, OpTableName) of
     ok ->
-      Request = #{id => Id,
-                  op => OpName,
-                  data => emp_json:intern_object_keys(Data)},
-      {ok, Request};
+      Data2 = emp_json:intern_object_keys(Data),
+      {ok, Request#{data => Data2}};
     {error, Reason} ->
       {error, Reason}
   end.
 
 -spec validate_data(emp:op_name(), json:value(), emp_ops:op_table_name()) ->
-        ok | {error, parse_error_reason()}.
+        ok | {error, validate_error_reason()}.
 validate_data(OpName, Value, OpTableName) ->
   case emp_ops:find_op(OpName, OpTableName) of
     {ok, #{input := InputDefinition}} ->

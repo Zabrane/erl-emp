@@ -14,37 +14,27 @@
 
 -module(emp_response).
 
--export([parse/3]).
+-export([validate/3]).
 
--export_type([parse_error_reason/0]).
+-export_type([validate_error_reason/0]).
 
--type parse_error_reason() :: {invalid_value, [jsv:value_error()]}.
+-type validate_error_reason() :: {invalid_value, [jsv:value_error()]}.
 
--spec parse(emp_proto:message(), emp:op_name(), emp_ops:op_table_name()) ->
-        {ok, emp:response()} | {error, parse_error_reason()}.
-parse(#{type := response, body := Body}, OpName, OpTableName) ->
-  #{id := Id, status := Status, data := Data} = Body,
+-spec validate(emp_proto:message(), emp:op_name(), emp_ops:op_table_name()) ->
+        {ok, emp:response()} | {error, validate_error_reason()}.
+validate(#{type := response, body := Response}, OpName, OpTableName) ->
+  #{status := Status, data := Data} = Response,
   case validate_data(OpName, Status, Data, OpTableName) of
     ok ->
-      Response = case Status of
-                   success ->
-                     #{id => Id,
-                       status => success,
-                       data => Data};
-                   failure ->
-                     #{id => Id,
-                       status => failure,
-                       description => maps:get(description, Body),
-                       data => Data}
-                 end,
-      {ok, Response};
+      Data2 = emp_json:intern_object_keys(Data),
+      {ok, Response#{data => Data2}};
     {error, Reason} ->
       {error, Reason}
   end.
 
 -spec validate_data(emp:op_name(), emp:response_status(), json:value(),
                     emp_ops:op_table_name()) ->
-        ok | {error, parse_error_reason()}.
+        ok | {error, validate_error_reason()}.
 validate_data(OpName, Status, Value, OpTableName) ->
   {ok, Op} = emp_ops:find_op(OpName, OpTableName),
   DefType = case Status of
