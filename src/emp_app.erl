@@ -20,10 +20,10 @@
 
 start(_StartType, _Args) ->
   jsv:install_catalog(emp, emp_jsv:catalog()),
-  emp_ops:install_op_table(emp_ops:internal_op_table(),
-                           emp_ops:internal_op_table_name()),
+  emp_ops:install_op_table(internal, emp_ops:internal_op_table()),
   emp_sup:start_link().
 
 stop(_State) ->
+  emp_ops:uninstall_op_table(internal),
   jsv:uninstall_catalog(emp),
   ok.

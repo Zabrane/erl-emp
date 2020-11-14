@@ -61,8 +61,7 @@ send_request(Pid, Request) ->
 -spec init(list()) -> {ok, state()}.
 init([Address, Port, Options]) ->
   logger:update_process_metadata(#{domain => [emp, connection]}),
-  OpTableName = maps:get(op_table_name, Options,
-                         emp_ops:internal_op_table_name()),
+  OpTableName = emp_ops:table_name(maps:get(op_table_name, Options, internal)),
   State = #{options => Options,
             address => Address,
             port => Port,

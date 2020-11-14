@@ -14,7 +14,7 @@
 
 -module(emp_ops).
 
--export([internal_op_table_name/0, install_op_table/2,
+-export([table_name/1, install_op_table/2, uninstall_op_table/1,
          find_op/2, all_ops/1, serialize_op/2,
          internal_op_table/0]).
 
@@ -22,12 +22,14 @@
 
 -type op_table_name() :: atom().
 
--spec internal_op_table_name() -> op_table_name().
-internal_op_table_name() ->
-  emp_internal_ops_table.
+-spec table_name(atom()) -> emp:op_table_name().
+table_name(Name) ->
+  Bin = <<"emp_op_table_", (atom_to_binary(Name))/binary>>,
+  binary_to_atom(Bin).
 
--spec install_op_table(emp:op_table(), op_table_name()) -> ok.
-install_op_table(Ops, TableName) ->
+-spec install_op_table(Name :: atom(), emp:op_table()) -> ok.
+install_op_table(Name, Ops) ->
+  TableName = table_name(Name),
   Ops2 = maps:merge(Ops, internal_op_table()),
   ets:new(TableName, [set,
                       named_table,
@@ -35,6 +37,12 @@ install_op_table(Ops, TableName) ->
   lists:foreach(fun (Pair) ->
                     ets:insert(TableName, Pair)
                 end, maps:to_list(Ops2)),
+  ok.
+
+-spec uninstall_op_table(Name :: atom()) -> ok.
+uninstall_op_table(Name) ->
+  TableName = table_name(Name),
+  ets:delete(TableName),
   ok.
 
 -spec find_op(emp:op_name(), emp_ops:op_table_name()) ->

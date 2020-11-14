@@ -57,8 +57,8 @@ ops_test_() ->
    {setup,
     fun () ->
         start_test_env(),
-        emp_ops:install_op_table(emp_test_handler:op_table(), test),
-        {ok, _} = emp_test_handler:start_link(),
+        emp_ops:install_op_table(test, emp_test_handler:op_table()),
+        {ok, _} = emp_test_handler:start(),
         ConnOptions = #{handler => emp_test_handler,
                         op_table_name => test},
         {ok, _} = start_test_server(#{connection_options => ConnOptions}),
