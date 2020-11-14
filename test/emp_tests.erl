@@ -44,7 +44,8 @@ internal_ops_test_echo() ->
 internal_ops_test_get_op() ->
   ?assertMatch({ok, #{<<"op">> := #{<<"name">> := <<"$echo">>}}},
                send_test_request(<<"$get_op">>, #{op_name => <<"$echo">>})),
-  ?assertMatch({error, {request_failure, _, #{}}},
+  ?assertMatch({error,
+                {request_failure, _, #{<<"error">> := <<"unknown_op">>}}},
                send_test_request(<<"$get_op">>, #{op_name => <<"foobar">>})).
 
 internal_ops_test_list_ops() ->

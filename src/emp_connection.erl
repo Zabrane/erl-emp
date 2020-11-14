@@ -270,7 +270,9 @@ execute_internal_request(#{op := <<"$get_op">>, data := Data},
       OpValue = emp_ops:serialize_op(OpName, Op),
       {ok, emp:success_response(#{op => OpValue})};
     error ->
-      {ok, emp:failure_response("unknown op ~p", [OpName])}
+      Response = emp:failure_response("unknown op \"~ts\"", [OpName],
+                                      #{error => <<"unknown_op">>}),
+      {ok, Response}
   end;
 
 execute_internal_request(#{op := <<"$list_ops">>},
