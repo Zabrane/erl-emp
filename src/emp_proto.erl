@@ -52,7 +52,6 @@
 
 -type error_code() :: internal_error
                     | protocol_error
-                    | service_unavailable
                     | invalid_request
                     | invalid_response.
 
@@ -136,9 +135,8 @@ encode_message_type(response) -> 6.
 -spec encode_error_code(error_code()) -> 0..255.
 encode_error_code(internal_error) -> 0;
 encode_error_code(protocol_error) -> 1;
-encode_error_code(service_unavailable) -> 2;
-encode_error_code(invalid_request) -> 3;
-encode_error_code(invalid_response) -> 4.
+encode_error_code(invalid_request) -> 2;
+encode_error_code(invalid_response) -> 3.
 
 -spec encode_body(message_type(), message_body()) -> iodata().
 encode_body(hello, #{version := Version}) ->
@@ -251,9 +249,8 @@ decode_body(Data, Message = #{type := response}) ->
 -spec decode_error_code(0..255) -> error_code().
 decode_error_code(0) -> internal_error;
 decode_error_code(1) -> protocol_error;
-decode_error_code(2) -> service_unavailable;
-decode_error_code(3) -> invalid_request;
-decode_error_code(4) -> invalid_response;
+decode_error_code(2) -> invalid_request;
+decode_error_code(3) -> invalid_response;
 decode_error_code(Code) ->
   throw({error, {unknown_error_code, Code}}).
 

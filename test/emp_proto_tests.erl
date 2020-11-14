@@ -50,7 +50,6 @@ encode_decode_message_test_() ->
               emp_proto:error_message(internal_error, <<"test">>),
               emp_proto:error_message(internal_error, "a: ~b", [42]),
               emp_proto:error_message(protocol_error, "test"),
-              emp_proto:error_message(service_unavailable, "test"),
               emp_proto:error_message(invalid_request, "test"),
               emp_proto:error_message(invalid_response, "test"),
               emp_proto:request_message(#{id => 42,

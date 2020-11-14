@@ -122,9 +122,8 @@ The following error codes are currently defined:
 |------|--------------------------------------------------------------------------------------------------------|
 | 0    | Internal error. Used for system and network errors.                                                    |
 | 1    | Protocol error. Indicates that an invalid message was received, or that the message flow is incorrect. |
-| 2    | Service unavailable.                                                                                   |
-| 3    | Invalid request.                                                                                       |
-| 4    | Invalid response.                                                                                      |
+| 2    | Invalid request.                                                                                       |
+| 3    | Invalid response.                                                                                      |
 
 ### Request
 The `request` message is used to send messages which expect a response.
