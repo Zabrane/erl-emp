@@ -18,6 +18,8 @@
          success_response/0, success_response/1,
          failure_response/1, failure_response/2, failure_response/3,
          unhandled_op_failure_response/1,
+         service_unavailable_failure_response/0,
+         internal_failure_response/1,
          send_message/2, send_request/2, send_request/3]).
 
 -export_type([gen_server_name/0, gen_server_ref/0, gen_server_call_tag/0,
@@ -111,7 +113,17 @@ failure_response(Format, Args, Data) ->
 -spec unhandled_op_failure_response(op_name()) -> emp:response().
 unhandled_op_failure_response(OpName) ->
   failure_response("unhandled op \"~ts\"", [OpName],
-                   #{error => unhandled_op, op => OpName}).
+                   #{error => <<"unhandled_op">>, op => OpName}).
+
+-spec service_unavailable_failure_response() -> emp:response().
+service_unavailable_failure_response() ->
+  failure_response("service unavailable",
+                   #{error => <<"service_unavailable">>}).
+
+-spec internal_failure_response(term()) -> emp:response().
+internal_failure_response(Reason) ->
+  failure_response("internal error: ~p", [Reason],
+                   #{error => <<"internal">>}).
 
 -spec send_message(sender(), emp_proto:message()) -> ok | {error, term()}.
 send_message({client, ClientId}, Message) ->

@@ -226,40 +226,36 @@ handle_message(Message, _State) ->
 handle_request_message(Message, State = #{op_table_name := OpTableName}) ->
   case emp_request:validate(Message, OpTableName) of
     {ok, Request} ->
-      handle_request(Request, State);
+      {ok, handle_request(Request, State)};
     {error, Reason = {invalid_value, Errors}} ->
       ErrorString = emp_jsv:format_value_errors(Errors),
+      %% TODO failure response
       send_error(invalid_request, ErrorString, State),
       {error, {invalid_request, Reason}};
     {error, Reason = {unknown_op, OpString}} ->
+      %% TODO failure response
       send_error(invalid_request, "unknown op \"~ts\"", [OpString], State),
       {error, {invalid_request, Reason}}
   end.
 
--spec handle_request(emp:request(), state()) -> {ok, state()} | {error, term()}.
+-spec handle_request(emp:request(), state()) -> state().
 handle_request(Request = #{id := Id}, State) ->
-  case execute_request(Request, State) of
-    {ok, Response0} ->
-      Response = Response0#{id => Id},
-      ResponseMessage = emp_proto:response_message(Response),
-      do_send_message(ResponseMessage, State),
-      {ok, State};
-    {error, Reason} ->
-      {error, Reason}
-  end.
+  Response0 = execute_request(Request, State),
+  Response = Response0#{id => Id},
+  ResponseMessage = emp_proto:response_message(Response),
+  do_send_message(ResponseMessage, State),
+  State.
 
--spec execute_request(emp:request(), state()) ->
-        {ok, emp:response()} | {error, term()}.
+-spec execute_request(emp:request(), state()) -> emp:response().
 execute_request(Request = #{op := <<$$, _/binary>>}, State) ->
   execute_internal_request(Request, State);
 execute_request(Request, State) ->
   call_handler({emp_request, Request}, State).
 
--spec execute_internal_request(emp:request(), state()) ->
-        {ok, emp:response()} | {error, term()}.
+-spec execute_internal_request(emp:request(), state()) -> emp:response().
 
 execute_internal_request(#{op := <<"$echo">>, data := Data}, _State) ->
-  {ok, emp:success_response(Data)};
+  emp:success_response(Data);
 
 execute_internal_request(#{op := <<"$get_op">>, data := Data},
                          #{op_table_name := OpTableName}) ->
@@ -267,11 +263,10 @@ execute_internal_request(#{op := <<"$get_op">>, data := Data},
   case emp_ops:find_op(OpName, OpTableName) of
     {ok, Op} ->
       OpValue = emp_ops:serialize_op(OpName, Op),
-      {ok, emp:success_response(#{op => OpValue})};
+      emp:success_response(#{op => OpValue});
     error ->
-      Response = emp:failure_response("unknown op \"~ts\"", [OpName],
-                                      #{error => <<"unknown_op">>}),
-      {ok, Response}
+      emp:failure_response("unknown op \"~ts\"", [OpName],
+                           #{error => <<"unknown_op">>})
   end;
 
 execute_internal_request(#{op := <<"$list_ops">>},
@@ -280,10 +275,10 @@ execute_internal_request(#{op := <<"$list_ops">>},
   OpsValue = maps:fold(fun (OpName, Op, Acc) ->
                            [emp_ops:serialize_op(OpName, Op) | Acc]
                        end, [], Ops),
-  {ok, emp:success_response(#{ops => OpsValue})};
+  emp:success_response(#{ops => OpsValue});
 
 execute_internal_request(#{op := OpName}, _State) ->
-  {ok, emp:unhandled_op_failure_response(OpName)}.
+  emp:unhandled_op_failure_response(OpName).
 
 -spec handle_response_message(emp_proto:message(), state()) ->
         {ok, state()} | {error, term()}.
@@ -313,19 +308,24 @@ handle_response_message(Message = #{body := #{id := Id}},
       {error, {invalid_request_id, Id}}
   end.
 
--spec call_handler(term(), state()) -> {ok, term()} | {error, term()}.
-call_handler(Call, State = #{options := Options}) ->
+-spec call_handler(term(), state()) -> emp:response().
+call_handler(Call, #{options := Options}) ->
   case maps:find(handler, Options) of
     {ok, Handler} ->
       try
-        {ok, gen_server:call(Handler, Call, infinity)}
+        gen_server:call(Handler, Call, infinity)
       catch
         exit:{noproc, _MFA} ->
-          send_error(service_unavailable, "message handler (~p) down",
-                     [Handler], State),
-          {error, normal}
+          ?LOG_WARNING("message handler (~p) down", [Handler]),
+          {ok, emp:service_unavailable_failure_response()};
+        exit:{{Reason, _Trace}, _MFA} ->
+          ?LOG_ERROR("handler exit: ~p", [Reason]),
+          emp:internal_failure_response({error, Reason});
+        exit:{Reason, _MFA} ->
+          ?LOG_ERROR("handler exit: ~p", [Reason]),
+          emp:internal_failure_response({exit, Reason})
       end;
     error ->
-      send_error(service_unavailable, "missing message handler", State),
-      {error, normal}
+      ?LOG_ERROR("missing message handler"),
+      emp:service_unavailable_failure_response()
   end.

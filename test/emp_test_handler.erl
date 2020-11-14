@@ -18,29 +18,24 @@
 
 -behaviour(gen_server).
 
--export([op_table/0, start_link/0]).
+-export([start/0, start_link/0, stop/0, op_table/0]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -type state() :: #{}.
 
--spec op_table() -> emp:op_table().
-op_table() ->
-  #{<<"hello">> =>
-      #{input =>
-          {object, #{members =>
-                       #{name => {string, #{min_length => 2}}},
-                     required =>
-                       [name]}},
-        output =>
-          {object, #{members =>
-                       #{message => string},
-                    required =>
-                       [message]}}}}.
+-spec start() -> Result when
+    Result :: {ok, pid()} | ignore | {error, term()}.
+start() ->
+  gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 
 -spec start_link() -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link() ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+-spec stop() -> ok.
+stop() ->
+  gen_server:stop(?MODULE).
 
 -spec init(list()) -> {ok, state()}.
 init([]) ->
@@ -74,5 +69,63 @@ handle_request(#{op := <<"hello">>, data := Data}) ->
   Message = <<"Hello ", Name/binary, "!">>,
   emp:success_response(#{<<"message">> => Message});
 
+handle_request(#{op := <<"error">>, data := Data}) ->
+  Value = maps:get(<<"value">>, Data),
+  error(Value);
+
+handle_request(#{op := <<"throw">>, data := Data}) ->
+  Value = maps:get(<<"value">>, Data),
+  throw(Value);
+
+handle_request(#{op := <<"exit">>, data := Data}) ->
+  Value = maps:get(<<"value">>, Data),
+  exit(Value);
+
+handle_request(#{op := <<"exit_normal">>}) ->
+  exit(normal);
+
 handle_request(#{op := OpName}) ->
   emp:unhandled_op_failure_response(OpName).
+
+-spec op_table() -> emp:op_table().
+op_table() ->
+  #{<<"hello">> =>
+      #{input =>
+          {object, #{members =>
+                       #{name => {string, #{min_length => 2}}},
+                     required =>
+                       [name]}},
+        output =>
+          {object, #{members =>
+                       #{message => string},
+                    required =>
+                       [message]}}},
+    <<"error">> =>
+      #{input =>
+          {object, #{members =>
+                       #{value => string},
+                     required =>
+                       [value]}},
+        output =>
+          object},
+    <<"throw">> =>
+      #{input =>
+          {object, #{members =>
+                       #{value => string},
+                     required =>
+                       [value]}},
+        output =>
+          object},
+    <<"exit">> =>
+      #{input =>
+          {object, #{members =>
+                       #{value => string},
+                     required =>
+                       [value]}},
+        output =>
+          object},
+    <<"exit_normal">> =>
+      #{input =>
+          object,
+        output =>
+          object}}.

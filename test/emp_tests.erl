@@ -54,7 +54,7 @@ internal_ops_test_list_ops() ->
 
 ops_test_() ->
   {spawn,
-   {setup,
+   {foreach,
     fun () ->
         start_test_env(),
         emp_ops:install_op_table(test, emp_test_handler:op_table()),
@@ -67,10 +67,19 @@ ops_test_() ->
     fun (_) ->
         stop_test_client(),
         stop_test_server(),
+        try
+          emp_test_handler:stop()
+        catch
+          exit:noproc ->
+            ok
+        end,
+        emp_ops:uninstall_op_table(test),
         stop_test_env()
     end,
     [fun ops_test_hello/0,
-     fun ops_test_get_op/0]}}.
+     fun ops_test_get_op/0,
+     fun ops_test_error/0,
+     fun ops_test_exit/0]}}.
 
 ops_test_hello() ->
   ?assertMatch({ok, #{<<"message">> := <<"Hello Bob!">>}},
@@ -82,15 +91,22 @@ ops_test_get_op() ->
   ?assertMatch({ok, #{<<"op">> := #{<<"name">> := <<"$echo">>}}},
                send_test_request(<<"$get_op">>, #{op_name => <<"$echo">>})).
 
+ops_test_error() ->
+  ?assertMatch({error, {request_failure, _, #{<<"error">> := <<"internal">>}}},
+               send_test_request(<<"error">>, #{<<"value">> => <<"foo">>})).
+
+ops_test_exit() ->
+  ?assertMatch({error, {request_failure, _, #{<<"error">> := <<"internal">>}}},
+               send_test_request(<<"exit">>, #{<<"value">> => <<"foo">>})).
+
 -spec start_test_env() -> ok.
 start_test_env() ->
+  error_logger:tty(false),
   application:ensure_all_started(emp),
   ok.
 
 -spec stop_test_env() -> ok.
 stop_test_env() ->
-  %% TODO Find a way to just disable application info reports
-  error_logger:tty(false),
   application:stop(emp),
   error_logger:tty(true).
 
