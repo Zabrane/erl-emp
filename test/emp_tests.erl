@@ -16,18 +16,22 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--export([start_test_server/1, start_test_client/1]).
+-export([start_test_env/0, stop_test_env/0,
+         start_test_server/1, start_test_client/1,
+         stop_test_server/0, stop_test_client/0]).
 
 internal_ops_test_() ->
   {spawn,
    {setup,
     fun () ->
-        application:ensure_all_started(emp),
-        emp_test:start_test_server(#{}),
-        emp_test:start_test_client(#{})
+        start_test_env(),
+        {ok, _} = start_test_server(#{}),
+        {ok, _} = start_test_client(#{})
     end,
     fun (_) ->
-        ok
+        stop_test_client(),
+        stop_test_server(),
+        stop_test_env()
     end,
     [fun internal_ops_test_echo/0,
      fun internal_ops_test_get_op/0,
@@ -47,15 +51,58 @@ internal_ops_test_list_ops() ->
   ?assertMatch({ok, #{<<"ops">> := _}},
                send_test_request(<<"$list_ops">>)).
 
+ops_test_() ->
+  {spawn,
+   {setup,
+    fun () ->
+        start_test_env(),
+        emp_ops:install_op_table(emp_test_handler:op_table(), test),
+        {ok, _} = emp_test_handler:start_link(),
+        ConnOptions = #{handler => emp_test_handler,
+                        op_table_name => test},
+        {ok, _} = start_test_server(#{connection_options => ConnOptions}),
+        {ok, _} = start_test_client(#{connection_options => ConnOptions})
+    end,
+    fun (_) ->
+        stop_test_client(),
+        stop_test_server(),
+        stop_test_env()
+    end,
+    [fun ops_test_hello/0]}}.
+
+ops_test_hello() ->
+  ?assertMatch({ok, #{<<"message">> := <<"Hello Bob!">>}},
+               send_test_request(<<"hello">>, #{<<"name">> => <<"Bob">>})).
+
+-spec start_test_env() -> ok.
+start_test_env() ->
+  application:ensure_all_started(emp),
+  ok.
+
+-spec stop_test_env() -> ok.
+stop_test_env() ->
+  %% TODO Find a way to just disable application info reports
+  error_logger:tty(false),
+  application:stop(emp),
+  error_logger:tty(true).
+
 -spec start_test_server(emp_server:options()) -> ok.
 start_test_server(Options) ->
   Name = emp_server:process_name(test),
   emp_server:start_link({local, Name}, Options).
 
+-spec stop_test_server() -> ok.
+stop_test_server() ->
+  emp_server:stop(emp_server:process_name(test)).
+
 -spec start_test_client(emp_client:options()) -> ok.
 start_test_client(Options) ->
   Name = emp_client:process_name(test),
   emp_client:start_link({local, Name}, Options).
+
+-spec stop_test_client() -> ok.
+stop_test_client() ->
+  emp_client:stop(emp_client:process_name(test)).
 
 -spec send_test_request(emp:op_name()) ->
         {ok, emp:response()} | {error, term()}.

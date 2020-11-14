@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([process_name/1, start_link/2]).
+-export([process_name/1, start_link/2, stop/1]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([server_name/0, server_ref/0, options/0]).
@@ -44,6 +44,10 @@ process_name(Id) ->
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link(Name, Options) ->
   gen_server:start_link(Name, ?MODULE, [Options], []).
+
+-spec stop(server_ref()) -> ok.
+stop(Name) ->
+  gen_server:stop(Name).
 
 init([Options]) ->
   logger:update_process_metadata(#{domain => [emp, server]}),

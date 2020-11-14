@@ -62,7 +62,7 @@ send_request(Pid, Request) ->
 init([Address, Port, Options]) ->
   logger:update_process_metadata(#{domain => [emp, connection]}),
   OpTableName = maps:get(op_table_name, Options,
-                         emp_ops:default_op_table_name()),
+                         emp_ops:internal_op_table_name()),
   State = #{options => Options,
             address => Address,
             port => Port,
@@ -282,9 +282,7 @@ execute_internal_request(#{op := <<"$list_ops">>},
   {ok, emp:success_response(#{ops => OpsValue})};
 
 execute_internal_request(#{op := OpName}, _State) ->
-  ?LOG_WARNING("invalid op ~ts", [OpName]),
-  Response = emp:failure_response("invalid op ~ts", [OpName]),
-  {ok, Response}.
+  {ok, emp:unhandled_op_failure_response(OpName)}.
 
 -spec handle_response_message(emp_proto:message(), state()) ->
         {ok, state()} | {error, term()}.

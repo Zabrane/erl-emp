@@ -14,17 +14,17 @@
 
 -module(emp_ops).
 
--export([default_op_table_name/0, install_op_table/2,
+-export([internal_op_table_name/0, install_op_table/2,
          find_op/2, all_ops/1, serialize_op/2,
-         default_ops/0]).
+         internal_op_table/0]).
 
 -export_type([op_table_name/0]).
 
 -type op_table_name() :: atom().
 
--spec default_op_table_name() -> op_table_name().
-default_op_table_name() ->
-  emp_ops_table.
+-spec internal_op_table_name() -> op_table_name().
+internal_op_table_name() ->
+  emp_internal_ops_table.
 
 -spec install_op_table(emp:op_table(), op_table_name()) -> ok.
 install_op_table(Ops, TableName) ->
@@ -59,8 +59,8 @@ serialize_op(OpName, _Op) ->
   %% TODO
   #{name => OpName}.
 
--spec default_ops() -> emp:op_table().
-default_ops() ->
+-spec internal_op_table() -> emp:op_table().
+internal_op_table() ->
   #{<<"$echo">> =>
       #{input => object,
         output => object},

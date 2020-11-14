@@ -18,7 +18,8 @@
 
 -behaviour(gen_server).
 
--export([process_name/1, start_link/2, send_message/2, send_request/2]).
+-export([process_name/1, start_link/2, stop/1,
+         send_message/2, send_request/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([client_name/0, client_ref/0, options/0]).
@@ -46,6 +47,10 @@ process_name(Id) ->
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link(Name, Options) ->
   gen_server:start_link(Name, ?MODULE, [Options], []).
+
+-spec stop(client_ref()) -> ok.
+stop(Name) ->
+  gen_server:stop(Name).
 
 -spec send_message(client_ref(), emp_proto:message()) -> ok | {error, term()}.
 send_message(Ref, Message) ->
