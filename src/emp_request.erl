@@ -19,7 +19,7 @@
 -export_type([validate_error_reason/0]).
 
 -type validate_error_reason() :: {invalid_value, [jsv:value_error()]}
-                               | {invalid_op, binary()}.
+                               | {unknown_op, binary()}.
 
 -spec validate(emp_proto:message(), emp_ops:op_table_name()) ->
         {ok, emp:request()} | {error, validate_error_reason()}.
@@ -44,5 +44,5 @@ validate_data(OpName, Value, OpTableName) ->
           {error, {invalid_value, Errors}}
       end;
     error ->
-      {error, {invalid_op, OpName}}
+      {error, {unknown_op, OpName}}
   end.

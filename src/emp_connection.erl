@@ -232,8 +232,8 @@ handle_request_message(Message, State = #{op_table_name := OpTableName}) ->
       ErrorString = emp_jsv:format_value_errors(Errors),
       send_error(invalid_request, ErrorString, State),
       {error, {invalid_request, Reason}};
-    {error, Reason = {invalid_op, OpString}} ->
-      send_error(invalid_request, "invalid op \"~ts\"", [OpString], State),
+    {error, Reason = {unknown_op, OpString}} ->
+      send_error(invalid_request, "unknown op \"~ts\"", [OpString], State),
       {error, {invalid_request, Reason}}
   end.
 

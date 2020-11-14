@@ -28,12 +28,13 @@ internal_op_table_name() ->
 
 -spec install_op_table(emp:op_table(), op_table_name()) -> ok.
 install_op_table(Ops, TableName) ->
+  Ops2 = maps:merge(Ops, internal_op_table()),
   ets:new(TableName, [set,
                       named_table,
                       {read_concurrency, true}]),
   lists:foreach(fun (Pair) ->
                     ets:insert(TableName, Pair)
-                end, maps:to_list(Ops)),
+                end, maps:to_list(Ops2)),
   ok.
 
 -spec find_op(emp:op_name(), emp_ops:op_table_name()) ->

@@ -69,11 +69,18 @@ ops_test_() ->
         stop_test_server(),
         stop_test_env()
     end,
-    [fun ops_test_hello/0]}}.
+    [fun ops_test_hello/0,
+     fun ops_test_get_op/0]}}.
 
 ops_test_hello() ->
   ?assertMatch({ok, #{<<"message">> := <<"Hello Bob!">>}},
                send_test_request(<<"hello">>, #{<<"name">> => <<"Bob">>})).
+
+ops_test_get_op() ->
+  ?assertMatch({ok, #{<<"op">> := #{<<"name">> := <<"hello">>}}},
+               send_test_request(<<"$get_op">>, #{op_name => <<"hello">>})),
+  ?assertMatch({ok, #{<<"op">> := #{<<"name">> := <<"$echo">>}}},
+               send_test_request(<<"$get_op">>, #{op_name => <<"$echo">>})).
 
 -spec start_test_env() -> ok.
 start_test_env() ->
