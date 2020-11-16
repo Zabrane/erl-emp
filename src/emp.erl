@@ -28,7 +28,8 @@
               request/0, request_id/0,
               response/0, response_status/0,
               request_result/0,
-              op_name/0, op/0, op_table/0, op_table_name/0]).
+              op_name/0, op/0, op_catalog/0, op_catalog_name/0,
+              op_table_name/0]).
 
 -type gen_server_name() :: {local, term()}
                          | {global, term()}
@@ -69,7 +70,8 @@
 -type op() :: #{input := jsv:definition(),
                 output => jsv:definition(),
                 error => jsv:definition()}.
--type op_table() :: #{op_name() := op()}.
+-type op_catalog() :: #{op_name() := op()}.
+-type op_catalog_name() :: atom().
 -type op_table_name() :: atom().
 
 -spec default_port() -> inet:port_number().

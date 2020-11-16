@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([start/0, start_link/0, stop/0, op_table/0]).
+-export([start/0, start_link/0, stop/0, op_catalog/0]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -type state() :: #{}.
@@ -87,8 +87,8 @@ handle_request(#{op := <<"exit_normal">>}) ->
 handle_request(#{op := OpName}) ->
   emp:unhandled_op_failure_response(OpName).
 
--spec op_table() -> emp:op_table().
-op_table() ->
+-spec op_catalog() -> emp:op_catalog().
+op_catalog() ->
   #{<<"hello">> =>
       #{input =>
           {object, #{members =>

@@ -21,21 +21,21 @@
 -type validate_error_reason() :: {invalid_value, [jsv:value_error()]}
                                | {unknown_op, binary()}.
 
--spec validate(emp_proto:message(), emp_ops:op_table_name()) ->
+-spec validate(emp_proto:message(), emp:op_catalog_name()) ->
         {ok, emp:request()} | {error, validate_error_reason()}.
-validate(#{type := request, body := Request}, OpTableName) ->
+validate(#{type := request, body := Request}, OpCatalogName) ->
   #{op := OpName, data := Data} = Request,
-  case validate_data(OpName, Data, OpTableName) of
+  case validate_data(OpName, Data, OpCatalogName) of
     ok ->
       {ok, Request};
     {error, Reason} ->
       {error, Reason}
   end.
 
--spec validate_data(emp:op_name(), json:value(), emp_ops:op_table_name()) ->
+-spec validate_data(emp:op_name(), json:value(), emp:op_catalog_name()) ->
         ok | {error, validate_error_reason()}.
-validate_data(OpName, Value, OpTableName) ->
-  case emp_ops:find_op(OpName, OpTableName) of
+validate_data(OpName, Value, OpCatalogName) ->
+  case emp_ops:find_op(OpName, OpCatalogName) of
     {ok, #{input := InputDefinition}} ->
       case emp_jsv:validate(Value, InputDefinition) of
         ok ->

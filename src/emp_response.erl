@@ -20,11 +20,11 @@
 
 -type validate_error_reason() :: {invalid_value, [jsv:value_error()]}.
 
--spec validate(emp_proto:message(), emp:op_name(), emp_ops:op_table_name()) ->
+-spec validate(emp_proto:message(), emp:op_name(), emp:op_catalog_name()) ->
         {ok, emp:response()} | {error, validate_error_reason()}.
-validate(#{type := response, body := Response}, OpName, OpTableName) ->
+validate(#{type := response, body := Response}, OpName, OpCatalogName) ->
   #{status := Status, data := Data} = Response,
-  case validate_data(OpName, Status, Data, OpTableName) of
+  case validate_data(OpName, Status, Data, OpCatalogName) of
     ok ->
       {ok, Response};
     {error, Reason} ->
@@ -32,10 +32,10 @@ validate(#{type := response, body := Response}, OpName, OpTableName) ->
   end.
 
 -spec validate_data(emp:op_name(), emp:response_status(), json:value(),
-                    emp_ops:op_table_name()) ->
+                    emp:op_catalog_name()) ->
         ok | {error, validate_error_reason()}.
-validate_data(OpName, Status, Value, OpTableName) ->
-  {ok, Op} = emp_ops:find_op(OpName, OpTableName),
+validate_data(OpName, Status, Value, OpCatalogName) ->
+  {ok, Op} = emp_ops:find_op(OpName, OpCatalogName),
   DefType = case Status of
               success -> output;
               failure -> error

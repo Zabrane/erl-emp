@@ -57,10 +57,10 @@ ops_test_() ->
    {foreach,
     fun () ->
         start_test_env(),
-        emp_ops:install_op_table(test, emp_test_handler:op_table()),
+        emp_ops:install_op_catalog(test, emp_test_handler:op_catalog()),
         {ok, _} = emp_test_handler:start(),
         ConnOptions = #{handler => emp_test_handler,
-                        op_table_name => test},
+                        op_catalog_name => test},
         {ok, _} = start_test_server(#{connection_options => ConnOptions}),
         {ok, _} = start_test_client(#{connection_options => ConnOptions})
     end,
@@ -73,7 +73,7 @@ ops_test_() ->
           exit:noproc ->
             ok
         end,
-        emp_ops:uninstall_op_table(test),
+        emp_ops:uninstall_op_catalog(test),
         stop_test_env()
     end,
     [fun ops_test_hello/0,

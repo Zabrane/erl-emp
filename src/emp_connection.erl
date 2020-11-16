@@ -29,7 +29,7 @@
 
 -type options() :: #{ping_interval => pos_integer(),
                      handler => handler(),
-                     op_table_name => emp_ops:op_table_name()}.
+                     op_catalog_name => emp:op_catalog_name()}.
 
 -type state() :: #{options := options(),
                    socket => emp_socket:socket(),
@@ -37,7 +37,7 @@
                    port := inet:port_number(),
                    pending_requests := queue:queue(pending_request()),
                    next_request_id := emp:request_id(),
-                   op_table_name => emp_ops:op_table_name()}.
+                   op_catalog_name => emp:op_catalog_name()}.
 
 -type pending_request() :: #{request := emp:request(),
                              source := emp:gen_server_call_tag()}.
@@ -61,13 +61,13 @@ send_request(Pid, Request) ->
 -spec init(list()) -> {ok, state()}.
 init([Address, Port, Options]) ->
   logger:update_process_metadata(#{domain => [emp, connection]}),
-  OpTableName = emp_ops:table_name(maps:get(op_table_name, Options, internal)),
+  OpCatalogName = emp_ops:table_name(maps:get(op_catalog_name, Options, internal)),
   State = #{options => Options,
             address => Address,
             port => Port,
             pending_requests => queue:new(),
             next_request_id => 1,
-            op_table_name => OpTableName},
+            op_catalog_name => OpCatalogName},
   {ok, State}.
 
 terminate(_Reason, #{socket := Socket}) ->
@@ -223,8 +223,8 @@ handle_message(Message, _State) ->
 
 -spec handle_request_message(emp_proto:message(), state()) ->
         {ok, state()} | {error, term()}.
-handle_request_message(Message, State = #{op_table_name := OpTableName}) ->
-  case emp_request:validate(Message, OpTableName) of
+handle_request_message(Message, State = #{op_catalog_name := OpCatalogName}) ->
+  case emp_request:validate(Message, OpCatalogName) of
     {ok, Request} ->
       {ok, handle_request(Request, State)};
     {error, Reason = {invalid_value, Errors}} ->
@@ -258,9 +258,9 @@ execute_internal_request(#{op := <<"$echo">>, data := Data}, _State) ->
   emp:success_response(Data);
 
 execute_internal_request(#{op := <<"$get_op">>, data := Data},
-                         #{op_table_name := OpTableName}) ->
+                         #{op_catalog_name := OpCatalogName}) ->
   OpName = maps:get(<<"op_name">>, Data),
-  case emp_ops:find_op(OpName, OpTableName) of
+  case emp_ops:find_op(OpName, OpCatalogName) of
     {ok, Op} ->
       OpValue = emp_ops:serialize_op(OpName, Op),
       emp:success_response(#{op => OpValue});
@@ -270,8 +270,8 @@ execute_internal_request(#{op := <<"$get_op">>, data := Data},
   end;
 
 execute_internal_request(#{op := <<"$list_ops">>},
-                         #{op_table_name := OpTableName}) ->
-  Ops = emp_ops:all_ops(OpTableName),
+                         #{op_catalog_name := OpCatalogName}) ->
+  Ops = emp_ops:all_ops(OpCatalogName),
   OpsValue = maps:fold(fun (OpName, Op, Acc) ->
                            [emp_ops:serialize_op(OpName, Op) | Acc]
                        end, [], Ops),
@@ -284,13 +284,13 @@ execute_internal_request(#{op := OpName}, _State) ->
         {ok, state()} | {error, term()}.
 handle_response_message(Message = #{body := #{id := Id}},
                         State = #{pending_requests := PendingRequests,
-                                  op_table_name := OpTableName}) ->
+                                  op_catalog_name := OpCatalogName}) ->
   case queue:out(PendingRequests) of
     {{value, #{request := #{id := Id, op := OpName},
                source := Source}},
      PendingRequests2} ->
       State2 = State#{pending_requests => PendingRequests2},
-      case emp_response:validate(Message, OpName, OpTableName) of
+      case emp_response:validate(Message, OpName, OpCatalogName) of
         {ok, Response} ->
           gen_server:reply(Source, {ok, Response}),
           State2 = State#{pending_requests => PendingRequests2},

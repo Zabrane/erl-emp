@@ -14,23 +14,19 @@
 
 -module(emp_ops).
 
--export([table_name/1, install_op_table/2, uninstall_op_table/1,
+-export([table_name/1, install_op_catalog/2, uninstall_op_catalog/1,
          find_op/2, all_ops/1, serialize_op/2,
-         internal_op_table/0]).
+         internal_op_catalog/0]).
 
--export_type([op_table_name/0]).
-
--type op_table_name() :: atom().
-
--spec table_name(atom()) -> emp:op_table_name().
+-spec table_name(emp:op_catalog_name()) -> emp:op_catalog_name().
 table_name(Name) ->
-  Bin = <<"emp_op_table_", (atom_to_binary(Name))/binary>>,
+  Bin = <<"emp_op_catalog_", (atom_to_binary(Name))/binary>>,
   binary_to_atom(Bin).
 
--spec install_op_table(Name :: atom(), emp:op_table()) -> ok.
-install_op_table(Name, Ops) ->
+-spec install_op_catalog(emp:op_catalog_name(), emp:op_catalog()) -> ok.
+install_op_catalog(Name, Ops) ->
   TableName = table_name(Name),
-  Ops2 = maps:merge(Ops, internal_op_table()),
+  Ops2 = maps:merge(Ops, internal_op_catalog()),
   ets:new(TableName, [set,
                       named_table,
                       {read_concurrency, true}]),
@@ -39,18 +35,18 @@ install_op_table(Name, Ops) ->
                 end, maps:to_list(Ops2)),
   ok.
 
--spec uninstall_op_table(Name :: atom()) -> ok.
-uninstall_op_table(Name) ->
+-spec uninstall_op_catalog(Name :: atom()) -> ok.
+uninstall_op_catalog(Name) ->
   TableName = table_name(Name),
   ets:delete(TableName),
   ok.
 
--spec find_op(emp:op_name(), emp_ops:op_table_name()) ->
+-spec find_op(emp:op_name(), emp:op_catalog_name()) ->
         {ok, emp:op()} | error.
-find_op(Name, OpTableName) ->
-  case ets:whereis(OpTableName) of
+find_op(Name, OpCatalogName) ->
+  case ets:whereis(OpCatalogName) of
     undefined ->
-      error({missing_op_table, OpTableName});
+      error({missing_op_catalog, OpCatalogName});
     Ref ->
       case ets:lookup(Ref, Name) of
         [{_, Op}] -> {ok, Op};
@@ -58,18 +54,18 @@ find_op(Name, OpTableName) ->
       end
   end.
 
--spec all_ops(emp_ops:op_table_name()) ->
+-spec all_ops(emp:op_catalog_name()) ->
         #{emp:op_name() => emp:op()}.
-all_ops(OpTableName) ->
-  maps:from_list(ets:tab2list(OpTableName)).
+all_ops(OpCatalogName) ->
+  maps:from_list(ets:tab2list(OpCatalogName)).
 
 -spec serialize_op(emp:op_name(), emp:op()) -> json:value().
 serialize_op(OpName, _Op) ->
   %% TODO
   #{name => OpName}.
 
--spec internal_op_table() -> emp:op_table().
-internal_op_table() ->
+-spec internal_op_catalog() -> emp:op_catalog().
+internal_op_catalog() ->
   #{<<"$echo">> =>
       #{input => object,
         output => object},
