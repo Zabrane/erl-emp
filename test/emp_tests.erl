@@ -57,7 +57,7 @@ ops_test_() ->
    {foreach,
     fun () ->
         start_test_env(),
-        emp_ops:install_op_catalog(test, emp_test_handler:op_catalog()),
+        emp:install_op_catalog(test, emp_test_handler:op_catalog()),
         {ok, _} = emp_test_handler:start(),
         ConnOptions = #{handler => emp_test_handler,
                         op_catalog_name => test},
@@ -73,7 +73,7 @@ ops_test_() ->
           exit:noproc ->
             ok
         end,
-        emp_ops:uninstall_op_catalog(test),
+        emp:uninstall_op_catalog(test),
         stop_test_env()
     end,
     [fun ops_test_hello/0,

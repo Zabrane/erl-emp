@@ -23,7 +23,9 @@ start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-  Children = [#{id => clients,
+  Children = [#{id => op_catalog_registry,
+                start => {emp_op_catalog_registry, start_link, []}},
+              #{id => clients,
                 start => {emp_client_sup, start_link, []},
                 type => supervisor},
               #{id => servers,

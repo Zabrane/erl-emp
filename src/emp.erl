@@ -20,6 +20,7 @@
          unhandled_op_failure_response/1,
          service_unavailable_failure_response/0,
          internal_failure_response/1,
+         install_op_catalog/2, uninstall_op_catalog/1,
          send_message/2, send_request/2, send_request/3]).
 
 -export_type([gen_server_name/0, gen_server_ref/0, gen_server_call_tag/0,
@@ -126,6 +127,15 @@ service_unavailable_failure_response() ->
 internal_failure_response(Reason) ->
   failure_response("internal error: ~p", [Reason],
                    #{error => <<"internal">>}).
+
+-spec install_op_catalog(op_catalog_name(), op_catalog()) -> op_table_name().
+install_op_catalog(Name, Catalog) ->
+  Catalog2 = maps:merge(Catalog, emp_ops:internal_op_catalog()),
+  emp_op_catalog_registry:install_catalog(Name, Catalog2).
+
+-spec uninstall_op_catalog(op_catalog_name()) -> ok.
+uninstall_op_catalog(Name) ->
+  emp_op_catalog_registry:uninstall_catalog(Name).
 
 -spec send_message(sender(), emp_proto:message()) -> ok | {error, term()}.
 send_message({client, ClientId}, Message) ->

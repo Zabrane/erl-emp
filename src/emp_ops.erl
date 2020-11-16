@@ -14,39 +14,16 @@
 
 -module(emp_ops).
 
--export([table_name/1, install_op_catalog/2, uninstall_op_catalog/1,
-         find_op/2, all_ops/1, serialize_op/2,
+-export([find_op/2, all_ops/1, serialize_op/2,
          internal_op_catalog/0]).
-
--spec table_name(emp:op_catalog_name()) -> emp:op_catalog_name().
-table_name(Name) ->
-  Bin = <<"emp_op_catalog_", (atom_to_binary(Name))/binary>>,
-  binary_to_atom(Bin).
-
--spec install_op_catalog(emp:op_catalog_name(), emp:op_catalog()) -> ok.
-install_op_catalog(Name, Ops) ->
-  TableName = table_name(Name),
-  Ops2 = maps:merge(Ops, internal_op_catalog()),
-  ets:new(TableName, [set,
-                      named_table,
-                      {read_concurrency, true}]),
-  lists:foreach(fun (Pair) ->
-                    ets:insert(TableName, Pair)
-                end, maps:to_list(Ops2)),
-  ok.
-
--spec uninstall_op_catalog(Name :: atom()) -> ok.
-uninstall_op_catalog(Name) ->
-  TableName = table_name(Name),
-  ets:delete(TableName),
-  ok.
 
 -spec find_op(emp:op_name(), emp:op_catalog_name()) ->
         {ok, emp:op()} | error.
 find_op(Name, OpCatalogName) ->
-  case ets:whereis(OpCatalogName) of
+  OpTableName = emp_op_catalog_registry:table_name(OpCatalogName),
+  case ets:whereis(OpTableName) of
     undefined ->
-      error({missing_op_catalog, OpCatalogName});
+      error({missing_op_catalog, OpCatalogName, OpTableName});
     Ref ->
       case ets:lookup(Ref, Name) of
         [{_, Op}] -> {ok, Op};
@@ -57,7 +34,8 @@ find_op(Name, OpCatalogName) ->
 -spec all_ops(emp:op_catalog_name()) ->
         #{emp:op_name() => emp:op()}.
 all_ops(OpCatalogName) ->
-  maps:from_list(ets:tab2list(OpCatalogName)).
+  OpTableName = emp_op_catalog_registry:table_name(OpCatalogName),
+  maps:from_list(ets:tab2list(OpTableName)).
 
 -spec serialize_op(emp:op_name(), emp:op()) -> json:value().
 serialize_op(OpName, _Op) ->
