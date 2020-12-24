@@ -42,7 +42,7 @@ terminate(_Reason, _State) ->
 
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
-  {noreply, State}.
+  {reply, unhandled, State}.
 
 handle_cast(accept, State = #{socket := Socket}) ->
   case emp_socket:accept(Socket, 1000) of

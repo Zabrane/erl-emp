@@ -104,7 +104,7 @@ handle_call({send_request, Request0}, From,
 
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
-  {noreply, State}.
+  {reply, unhandled, State}.
 
 handle_cast({socket, Socket}, State = #{options := Options}) ->
   State2 = State#{socket => Socket},
